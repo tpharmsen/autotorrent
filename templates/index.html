@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Torrent Dashboard</title>
+
+    <style>
+        body {
+            font-family: Arial;
+            margin: 10px;
+            background: #111;
+            color: white;
+        }
+
+        .card {
+            background: #222;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 10px;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+        }
+    </style>
+</head>
+
+<body>
+
+<h2>🎬 Torrent Dashboard</h2>
+
+<input id="magnet" placeholder="Paste magnet link">
+<button onclick="addTorrent()">Add Torrent</button>
+
+<h3>Active Torrents</h3>
+<div id="local_list"></div>
+
+<h3>Suggested Torrents</h3>
+<div id="remote_list"></div>
+
+<script>
+
+async function addTorrent() {
+    const link = document.getElementById("magnet").value;
+
+    await fetch("/add", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({link})
+    });
+
+    load();
+}
+
+async function load_local() {
+    const res = await fetch("/torrents");
+    const data = await res.json();
+
+    const list = document.getElementById("local_list");
+    list.innerHTML = "";
+
+    data.forEach(t => {
+        list.innerHTML += `
+            <div class="card">
+                <b>${t.name}</b><br>
+                Progress: ${t.progress * 100}%<br>
+                State: ${t.state}
+            </div>
+        `;
+    });
+}
+
+async function load_remote() {
+    const res = await fetch("/fetch-remote");
+    const data = await res.json();
+
+    const list = document.getElementById("remote_list");
+    list.innerHTML = "";
+    data.forEach(t => {
+        list.innerHTML += `
+            <div class="card">
+                <b>${t.name}</b><br>
+                Season/Episode: ${t.season_episode}<br>
+                Quality: ${t.quality}<br>
+                <a href="${t.magnet}" target="_blank">Magnet Link</a>
+                ${t.page_link ? `<br><a href="${t.page_link}" target="_blank">Source Page</a>` : ""}
+            </div>
+        `;
+    });
+}
+
+load_local();
+load_remote();
+setInterval(load_local, 5000);
+setInterval(load_remote, 1000000);
+
+</script>
+
+</body>
+</html>
