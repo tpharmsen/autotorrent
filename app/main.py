@@ -2,16 +2,14 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-
 import os
 import socket
 from pathlib import Path
-
 from app.models import TorrentLink, TorrentResponse
 from app.qb import add_magnet, list_torrents, get_transfer_info
+from app.metadata import search_movie, get_movie_detail, get_trending_movies
 
 app = FastAPI()
-
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 POSTER_DIR = os.path.join(BASE_DIR, "../temp/posters/")
@@ -19,9 +17,9 @@ STATIC_DIR = os.path.join(BASE_DIR, "../static/")
 TEMPLATE_DIR = os.path.join(BASE_DIR, "../templates")
 
 templates = Jinja2Templates(Path(TEMPLATE_DIR))
-
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.mount("/posters", StaticFiles(directory=POSTER_DIR), name="posters")
+
 
 def get_local_ip():
     try:
@@ -44,33 +42,35 @@ def get_posters():
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     posters = get_posters()
+    trending = get_trending_movies()
+    return templates.TemplateResponse("index.html", {
+        "request": request,
+        "posters": posters,
+        "trending": trending
+    })
 
-    return templates.TemplateResponse(
-        "index.html",
-        {
-            "request": request,
-            "posters": posters
-        }
-    )
+
+@app.get("/movie/{title}", response_class=HTMLResponse)
+async def movie_detail(request: Request, title: str):
+    movie = search_movie(title)
+    if not movie:
+        raise HTTPException(status_code=404, detail="Movie not found on TMDB")
+
+    detail = get_movie_detail(movie["id"])
+    return templates.TemplateResponse("movie.html", {
+        "request": request,
+        "movie": detail
+    })
 
 
 @app.post("/add", response_model=TorrentResponse)
 async def add_torrent(torrent: TorrentLink):
-
     if not torrent.link.startswith("magnet:"):
         raise HTTPException(status_code=400, detail="Invalid magnet link")
-
     result = add_magnet(torrent.link)
-
     if not result["success"]:
         raise HTTPException(status_code=500, detail=result["message"])
-
-    return TorrentResponse(
-        success=True,
-        message="Torrent added",
-        torrent_hash=None,
-        vlc_opened=False
-    )
+    return TorrentResponse(success=True, message="Torrent added", torrent_hash=None, vlc_opened=False)
 
 
 @app.get("/torrents")
@@ -82,7 +82,6 @@ async def torrents():
 @app.get("/transfer-info")
 async def transfer():
     info = get_transfer_info()
-
     return {
         "download_mb_s": info.get("dl_info_speed", 0) / 1024 / 1024,
         "upload_mb_s": info.get("up_info_speed", 0) / 1024 / 1024,
@@ -105,7 +104,6 @@ async def fetch_remote():
 
 if __name__ == "__main__":
     import uvicorn
-
     ip = get_local_ip()
     print(f" UI: http://{ip}:5000")
     uvicorn.run(app, host="0.0.0.0", port=5000)

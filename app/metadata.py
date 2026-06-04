@@ -1,36 +1,60 @@
-import os
 import requests
+import os
 from dotenv import load_dotenv
 
 load_dotenv()
 
-TMDB_API_KEY = os.getenv("TMDB_API_KEY")
+API_KEY = os.getenv("TMDB_API_KEY")
+HEADERS = {
+    "Authorization": f"Bearer {os.getenv('TMDB_API_RA_KEY')}",
+    "accept": "application/json"
+}
+BASE_URL = "https://api.themoviedb.org/3"
 
-BASE_URL = "https://api.themoviedb.org/3/search/movie"
+
+def search_movie(title: str) -> dict | None:
+    response = requests.get(
+        f"{BASE_URL}/search/movie",
+        headers=HEADERS,
+        params={"query": title, "language": "en-US"}
+    )
+    response.raise_for_status()
+    results = response.json().get("results", [])
+    return results[0] if results else None
 
 
-def enrich(title: str):
-    if not TMDB_API_KEY:
-        return {}
+def get_movie_detail(movie_id: int) -> dict:
+    response = requests.get(
+        f"{BASE_URL}/movie/{movie_id}",
+        headers=HEADERS,
+        params={"append_to_response": "credits,videos,reviews", "language": "en-US"}
+    )
+    response.raise_for_status()
+    return response.json()
 
-    try:
-        r = requests.get(BASE_URL, params={
-            "api_key": TMDB_API_KEY,
-            "query": title
-        })
 
-        data = r.json()
+def get_trending_movies(page: int = 1) -> list:
+    response = requests.get(
+        f"{BASE_URL}/trending/movie/week",
+        headers=HEADERS,
+        params={"page": page, "language": "en-US"}
+    )
+    response.raise_for_status()
+    return response.json().get("results", [])
 
-        if data.get("results"):
-            m = data["results"][0]
+def download_posters(data):
+    
+    poster_base_url = "https://image.tmdb.org/t/p/w500"
+    for r in data:
+        #print(r)
+        name = r['original_title'] if r['media_type'] == 'movie' else r['original_name']
+        poster_path = r['poster_path']
+        if poster_path:
+            poster_url = poster_base_url + poster_path
+            response = requests.get(poster_url)
+            with open(f"temp/posters/{name}.jpg", "wb") as f:
+                f.write(response.content)
 
-            return {
-                "poster": "https://image.tmdb.org/t/p/w300" + m.get("poster_path") if m.get("poster_path") else None,
-                "rating": m.get("vote_average"),
-                "overview": m.get("overview")
-            }
-
-    except Exception:
-        pass
-
-    return {}
+if __name__ == "__main__":
+    trending = get_trending_movies()
+    download_posters(trending)

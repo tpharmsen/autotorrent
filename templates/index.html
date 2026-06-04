@@ -2,7 +2,6 @@
 <html>
 <head>
     <title>Movie Posters</title>
-
     <style>
         body {
             font-family: Arial;
@@ -11,52 +10,49 @@
             margin: 0;
             padding: 20px;
         }
-
         h1 {
             text-align: center;
         }
-
         .grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
             gap: 15px;
             padding: 20px;
         }
-
         .card {
             background: #222;
             border-radius: 10px;
             overflow: hidden;
             transition: 0.2s;
         }
-
         .card:hover {
             transform: scale(1.05);
         }
-
         img {
             width: 100%;
             display: block;
         }
-
         .filename {
             font-size: 12px;
             text-align: center;
             padding: 8px;
             color: #aaa;
         }
+        a {
+            text-decoration: none;
+            color: inherit;
+        }
     </style>
 </head>
-
 <body>
     <h1>🎬 Movie Posters</h1>
-
     <div class="grid">
         {% for poster in posters %}
-        <div class="card">
-            <img src="/posters/{{ poster }}" alt="{{ poster }}">
-            <div class="filename">{{ poster }}</div>
-        </div>
+        <a href="/movie/{{ poster.rsplit('.', 1)[0] }}">
+            <div class="card">
+                <img src="/posters/{{ poster }}" alt="{{ poster }}">
+            </div>
+        </a>
         {% endfor %}
     </div>
 </body>
