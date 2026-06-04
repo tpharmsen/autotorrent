@@ -7,7 +7,8 @@ import socket
 from pathlib import Path
 from app.models import TorrentLink, TorrentResponse
 from app.qb import add_magnet, list_torrents, get_transfer_info
-from app.metadata import search_movie, get_movie_detail, get_trending_movies
+from app.metadata import search_movie, get_movie_detail, get_trending_movies, download_posters
+from app.tpb import get_downloadable_torrents, fetch_remote
 
 app = FastAPI()
 
@@ -41,8 +42,10 @@ def get_posters():
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    posters = get_posters()
+    
     trending = get_trending_movies()
+    download_posters(trending)
+    posters = get_posters()
     return templates.TemplateResponse("index.html", {
         "request": request,
         "posters": posters,
@@ -57,6 +60,8 @@ async def movie_detail(request: Request, title: str):
         raise HTTPException(status_code=404, detail="Movie not found on TMDB")
 
     detail = get_movie_detail(movie["id"])
+    downloadable_torrents = get_downloadable_torrents(detail["title"])
+    detail["torrents"] = downloadable_torrents
     return templates.TemplateResponse("movie.html", {
         "request": request,
         "movie": detail
@@ -101,6 +106,9 @@ async def fetch_remote():
     from app.tpb import fetch_remote
     return fetch_remote()
 
+@app.get("/hey")
+async def hey():
+    print("hey, deze function moet torrent toevoegen en vlc openen etc")
 
 if __name__ == "__main__":
     import uvicorn

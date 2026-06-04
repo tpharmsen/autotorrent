@@ -1,63 +1,103 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>{{ movie.title }}</title>
-    <style>
-        body { font-family: Arial; background: #111; color: white; margin: 0; padding: 20px; }
-        .back { color: #aaa; text-decoration: none; display: inline-block; margin-bottom: 20px; }
-        .back:hover { color: white; }
-        .hero { display: flex; gap: 40px; max-width: 1000px; margin: 0 auto; }
-        .poster img { width: 300px; border-radius: 10px; }
-        .info h1 { margin-top: 0; }
-        .meta { color: #aaa; margin-bottom: 15px; }
-        .overview { line-height: 1.6; margin-bottom: 20px; }
-        .cast { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
-        .actor { background: #222; padding: 8px 12px; border-radius: 6px; font-size: 13px; }
-        h2 { border-bottom: 1px solid #333; padding-bottom: 8px; }
-        .review { background: #222; padding: 15px; border-radius: 8px; margin-bottom: 10px; }
-        .review-author { font-weight: bold; margin-bottom: 5px; }
-        .review-content { color: #aaa; font-size: 13px; line-height: 1.5; }
-        iframe { width: 100%; max-width: 700px; height: 400px; border: none; border-radius: 10px; margin-top: 10px; }
-    </style>
+<title>{{ movie.title }}</title>
+<style>
+body { font-family: Arial; background: #111; color: white; margin: 0; padding: 20px; }
+.back { color: #aaa; text-decoration: none; display: inline-block; margin-bottom: 20px; }
+.back:hover { color: white; }
+.hero { display: flex; gap: 40px; max-width: 1000px; margin: 0 auto; }
+.poster img { width: 300px; border-radius: 10px; }
+.info h1 { margin-top: 0; }
+.meta { color: #aaa; margin-bottom: 15px; }
+.overview { line-height: 1.6; margin-bottom: 20px; }
+.cast { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+.actor { background: #222; padding: 8px 12px; border-radius: 6px; font-size: 13px; }
+h2 { border-bottom: 1px solid #333; padding-bottom: 8px; max-width: 1000px; margin: 30px auto 10px; }
+.review { background: #222; padding: 15px; border-radius: 8px; margin-bottom: 10px; max-width: 1000px; margin-left: auto; margin-right: auto; }
+.review-author { font-weight: bold; margin-bottom: 5px; }
+.review-content { color: #aaa; font-size: 13px; line-height: 1.5; }
+iframe { width: 100%; max-width: 700px; height: 400px; border: none; border-radius: 10px; margin-top: 10px; }
+.torrent-table { width: 100%; max-width: 1000px; margin: 0 auto; border-collapse: collapse; }
+.torrent-table th { text-align: left; color: #aaa; font-size: 12px; padding: 8px 12px; border-bottom: 1px solid #333; }
+.torrent-table td { padding: 10px 12px; border-bottom: 1px solid #222; font-size: 13px; }
+.torrent-table tr:hover td { background: #1a1a1a; }
+.torrent-name { color: #ddd; }
+.seed { color: #4caf50; }
+.leech { color: #f44336; }
+button.magnet-btn { background: #e91e63; color: white; padding: 5px 12px; border-radius: 5px; font-size: 12px; border: none; cursor: pointer; }
+button.magnet-btn:hover { background: #c2185b; }
+</style>
 </head>
 <body>
-    <a class="back" href="/">← Back</a>
-
-    <div class="hero">
-        <div class="poster">
-            <img src="https://image.tmdb.org/t/p/w500{{ movie.poster_path }}" alt="{{ movie.title }}">
+<a class="back" href="/">← Back</a>
+<div class="hero">
+    <div class="poster">
+        <img src="https://image.tmdb.org/t/p/w500{{ movie.poster_path }}" alt="{{ movie.title }}">
+    </div>
+    <div class="info">
+        <h1>{{ movie.title }}</h1>
+        <div class="meta">
+            {{ movie.release_date[:4] }} · ⭐ {{ movie.vote_average | round(1) }} · {{ movie.runtime }} min
         </div>
-        <div class="info">
-            <h1>{{ movie.title }}</h1>
-            <div class="meta">
-                {{ movie.release_date[:4] }} · ⭐ {{ movie.vote_average | round(1) }} · {{ movie.runtime }} min
-            </div>
-            <div class="overview">{{ movie.overview }}</div>
-
-            <h2>Cast</h2>
-            <div class="cast">
-                {% for member in movie.credits.cast[:10] %}
-                <div class="actor">{{ member.name }} <span style="color:#aaa">as {{ member.character }}</span></div>
-                {% endfor %}
-            </div>
+        <div class="overview">{{ movie.overview }}</div>
+        <h2>Cast</h2>
+        <div class="cast">
+            {% for member in movie.credits.cast[:10] %}
+            <div class="actor">{{ member.name }} <span style="color:#aaa">as {{ member.character }}</span></div>
+            {% endfor %}
         </div>
     </div>
+</div>
 
-    {% set trailer = movie.videos.results | selectattr("type", "equalto", "Trailer") | selectattr("site", "equalto", "YouTube") | first %}
-    {% if trailer %}
-    <h2 style="max-width:1000px;margin:30px auto 10px;">Trailer</h2>
-    <iframe src="https://www.youtube.com/embed/{{ trailer.key }}" allowfullscreen></iframe>
-    {% endif %}
+{% set trailer = movie.videos.results | selectattr("type", "equalto", "Trailer") | selectattr("site", "equalto", "YouTube") | first %}
+{% if trailer %}
+<h2>Trailer</h2>
+<iframe src="https://www.youtube.com/embed/{{ trailer.key }}" allowfullscreen></iframe>
+{% endif %}
 
-    {% if movie.reviews.results %}
-    <h2 style="max-width:1000px;margin:30px auto 10px;">Reviews</h2>
-    {% for review in movie.reviews.results[:3] %}
-    <div class="review">
-        <div class="review-author">{{ review.author }}</div>
-        <div class="review-content">{{ review.content[:400] }}...</div>
-    </div>
-    {% endfor %}
-    {% endif %}
+{% if movie.torrents %}
+<h2>Torrents</h2>
+<table class="torrent-table">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Quality</th>
+            <th>Size</th>
+            <th>Seeds</th>
+            <th>Leeches</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for torrent in movie.torrents %}
+        <tr>
+            <td class="torrent-name">{{ torrent.name }}</td>
+            <td>{{ torrent.quality }}</td>
+            <td>{{ torrent.size }}</td>
+            <td class="seed">{{ torrent.seeders }}</td>
+            <td class="leech">{{ torrent.leechers }}</td>
+            <td><button class="magnet-btn" onclick="addTorrent('{{ torrent.magnet }}')">⬇ Download</button></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
 
+{% if movie.reviews.results %}
+<h2>Reviews</h2>
+{% for review in movie.reviews.results[:3] %}
+<div class="review">
+    <div class="review-author">{{ review.author }}</div>
+    <div class="review-content">{{ review.content[:400] }}...</div>
+</div>
+{% endfor %}
+{% endif %}
+
+<script>
+function addTorrent(magnet) {
+    fetch("/hey");
+}
+</script>
 </body>
 </html>

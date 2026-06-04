@@ -80,6 +80,53 @@ def parse_release(title: str):
         "quality": quality
     }
 
+def get_downloadable_torrents(title: str):
+    base_url = "https://thepibay.site/search/"
+    search_url = base_url + title.replace(" ", "%20")
+    headers = {"User-Agent": "Mozilla/5.0"}
+    response = requests.get(search_url, headers=headers)
+    soup = BeautifulSoup(response.text, "html.parser")
+
+    items = []
+    for row in soup.find_all("tr"):
+        title_tag = row.select_one("a.detLink")
+        magnet_tag = row.find("a", href=lambda x: x and x.startswith("magnet:"))
+
+        if not title_tag:
+            continue
+
+        raw_title = title_tag.text.strip()
+        page_link = title_tag["href"]
+        magnet = magnet_tag["href"] if magnet_tag else None
+
+        # Seeders/leechers are in the last two <td> columns
+        cols = row.find_all("td")
+        seeders = cols[-2].text.strip() if len(cols) >= 2 else "?"
+        leechers = cols[-1].text.strip() if len(cols) >= 2 else "?"
+
+        # Size is in the description line
+        desc = row.select_one("font.detDesc")
+        size = None
+        if desc:
+            for part in desc.text.split(","):
+                if "Size" in part:
+                    size = part.replace("Size", "").strip()
+
+        parsed = parse_release(raw_title)
+        items.append({
+            "raw": raw_title,
+            "name": parsed["name"],
+            "season_episode": parsed["season_episode"],
+            "quality": parsed["quality"],
+            "magnet": magnet,
+            "page_link": page_link,
+            "seeders": seeders,
+            "leechers": leechers,
+            "size": size or "Unknown"
+        })
+
+    return items
+
 
 if __name__ == "__main__":
     results = fetch_remote()
