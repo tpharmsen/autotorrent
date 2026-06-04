@@ -2,3 +2,6 @@ NOTES
 
 in case you have tuple error: install older verison of starlette:
 pip uninstall starlette -y && pip install starlette==0.41.3
+
+source venv/bin/activate
+python3 -m app.main
