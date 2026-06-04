@@ -5,23 +5,23 @@ from fastapi.templating import Jinja2Templates
 
 import os
 import socket
+from pathlib import Path
 
 from app.models import TorrentLink, TorrentResponse
 from app.qb import add_magnet, list_torrents, get_transfer_info
-from app.scraper import fetch_remote
 
 app = FastAPI()
 
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+POSTER_DIR = os.path.join(BASE_DIR, "../temp/posters/")
+STATIC_DIR = os.path.join(BASE_DIR, "../static/")
+TEMPLATE_DIR = os.path.join(BASE_DIR, "../templates")
 
-templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "../templates"))
+templates = Jinja2Templates(Path(TEMPLATE_DIR))
 
-app.mount(
-    "/static",
-    StaticFiles(directory=os.path.join(BASE_DIR, "../static")),
-    name="static"
-)
-
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+app.mount("/posters", StaticFiles(directory=POSTER_DIR), name="posters")
 
 def get_local_ip():
     try:
@@ -34,12 +34,24 @@ def get_local_ip():
         return "127.0.0.1"
 
 
+def get_posters():
+    return sorted(
+        f for f in os.listdir(POSTER_DIR)
+        if f.lower().endswith((".jpg", ".jpeg", ".png", ".webp"))
+    )
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    with open(os.path.join(BASE_DIR, "../templates/index.html")) as f:
-        html = f.read()
+    posters = get_posters()
 
-    return HTMLResponse(html)
+    return templates.TemplateResponse(
+        "index.html",
+        {
+            "request": request,
+            "posters": posters
+        }
+    )
 
 
 @app.post("/add", response_model=TorrentResponse)
@@ -64,8 +76,7 @@ async def add_torrent(torrent: TorrentLink):
 @app.get("/torrents")
 async def torrents():
     all_torrents = list_torrents()
-    relevent_torrents = [t for t in all_torrents if t['state'] != 'missingFiles']
-    return relevent_torrents
+    return [t for t in all_torrents if t["state"] != "missingFiles"]
 
 
 @app.get("/transfer-info")
@@ -77,7 +88,7 @@ async def transfer():
         "upload_mb_s": info.get("up_info_speed", 0) / 1024 / 1024,
         "downloaded_gb": info.get("dl_info_data", 0) / 1024 / 1024 / 1024,
         "uploaded_gb": info.get("up_info_data", 0) / 1024 / 1024 / 1024,
-        "ratio": info.get("global_ratio", 0)    
+        "ratio": info.get("global_ratio", 0)
     }
 
 
@@ -85,28 +96,16 @@ async def transfer():
 async def health():
     return {"status": "ok"}
 
+
 @app.get("/fetch-remote")
 async def fetch_remote():
-    from app.scraper import fetch_remote
-    items = fetch_remote()
-    #print(f"Fetched {len(items)} items from remote source.")
-    return items
-    
+    from app.tpb import fetch_remote
+    return fetch_remote()
 
-# -------------------------
-# Run
-# -------------------------
 
 if __name__ == "__main__":
     import uvicorn
 
     ip = get_local_ip()
-
-    print("\n============================")
-    print(" Torrent Dashboard Running")
-    print("============================")
     print(f" UI: http://{ip}:5000")
-    print(f" API: http://{ip}:5000/docs")
-    print("============================\n")
-
     uvicorn.run(app, host="0.0.0.0", port=5000)

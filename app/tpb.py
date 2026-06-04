@@ -85,11 +85,11 @@ if __name__ == "__main__":
     results = fetch_remote()
 
     print("\nParsed items:\n")
-
-    for r in results:
+    
+    for i,r in enumerate(results):
         print(r["raw"])
-        print("NAME:", r["name"])
-        print("SE:", r["season_episode"])
-        print("QUALITY:", r["quality"])
-        print("MAGNET:", r["magnet"])
-        print("----")
+        #print("NAME:", r["name"])
+        #print("LINK:", r["page_link"])
+        #print("----")
+        if i >= 40:
+            break
