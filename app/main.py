@@ -20,6 +20,8 @@ POSTER_DIR = os.path.join(BASE_DIR, "../temp/posters/")
 STATIC_DIR = os.path.join(BASE_DIR, "../static/")
 TEMPLATE_DIR = os.path.join(BASE_DIR, "../templates")
 
+os.makedirs(POSTER_DIR, exist_ok=True)
+
 templates = Jinja2Templates(Path(TEMPLATE_DIR))
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.mount("/posters", StaticFiles(directory=POSTER_DIR), name="posters")
@@ -168,6 +170,7 @@ async def fetch_remote():
 """
 
 if __name__ == "__main__":
+    # make sure poster directory exists
     import uvicorn
     ip = get_local_ip()
     print(f" UI: http://{ip}:5000")
