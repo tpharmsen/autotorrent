@@ -6,3 +6,4 @@ python-dotenv
 feedparser
 beautifulsoup4
 dotenv
+starlette==0.41.3
