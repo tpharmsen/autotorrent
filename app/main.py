@@ -5,10 +5,13 @@ from fastapi.templating import Jinja2Templates
 import os
 import socket
 from pathlib import Path
-from app.models import TorrentLink, TorrentResponse
-from app.qb import add_magnet, list_torrents, get_transfer_info
-from app.metadata import search_movie, get_movie_detail, get_trending_movies, download_posters
-from app.tpb import get_downloadable_torrents, fetch_remote
+from models import TorrentLink, TorrentResponse, MagnetRequest
+from qb import *
+from metadata import *
+from tpb import *
+from vlc import *
+from stream import *
+import threading
 
 app = FastAPI()
 
@@ -20,6 +23,7 @@ TEMPLATE_DIR = os.path.join(BASE_DIR, "../templates")
 templates = Jinja2Templates(Path(TEMPLATE_DIR))
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.mount("/posters", StaticFiles(directory=POSTER_DIR), name="posters")
+
 
 
 def get_local_ip():
@@ -67,6 +71,64 @@ async def movie_detail(request: Request, title: str):
         "movie": detail
     })
 
+@app.get("/stream/{torrent_hash}")
+async def stream_video(torrent_hash: str, request: Request):
+    return get_stream_response(torrent_hash, request)
+
+@app.get("/subtitleTracks/{torrent_hash}")
+async def subtitle_tracks(torrent_hash: str):
+    return get_subtitle_tracks_response(torrent_hash)
+
+@app.get("/subtitles/{torrent_hash}/{stream_index}")
+async def subtitle_vtt(torrent_hash: str, stream_index: int):
+    return get_subtitle_vtt_response(torrent_hash, stream_index)
+
+"""
+@app.post("/interactTorrent")
+async def interact_torrent(req: MagnetRequest):
+    magnet = req.magnet
+
+    add_result = add_magnet(magnet)
+    if not add_result["success"]:
+        raise HTTPException(status_code=500, detail=add_result["message"])
+
+    torrent_hash = get_torrent_hash_by_magnet(get_session(), magnet)
+    if not torrent_hash:
+        raise HTTPException(status_code=500, detail="Failed to retrieve torrent hash")
+
+    vlc_result = open_in_vlc(torrent_hash)
+    if not vlc_result:
+        raise HTTPException(status_code=500, detail="Failed to open torrent in VLC")
+
+    return {"success": True, "message": "Torrent added"}
+"""
+@app.post("/interactTorrent")
+async def interact_torrent(req: MagnetRequest):
+    magnet = req.link
+    add_result = add_magnet(magnet)
+    if not add_result["success"]:
+        raise HTTPException(status_code=500, detail=add_result["message"])
+
+    torrent_hash = get_torrent_hash_by_magnet(get_session(), magnet)
+    if not torrent_hash:
+        raise HTTPException(status_code=500, detail="Failed to retrieve torrent hash")
+
+    threading.Thread(target=open_in_vlc, args=(torrent_hash,), daemon=True).start()
+
+    return {"success": True, "hash": torrent_hash}
+
+@app.get("/torrentProgress")
+async def torrent_progress(hash: str):
+    torrent = get_torrent_info(hash)
+    if not torrent:
+        return {"name": "", "completed_mb": 0, "status": "Fetching torrent info…"}
+    return {
+        "name": torrent["name"],
+        "completed_mb": torrent["completed"] / 1024 / 1024,
+        "status": "Downloading — please wait…"
+    }
+
+"""
 
 @app.post("/add", response_model=TorrentResponse)
 async def add_torrent(torrent: TorrentLink):
@@ -83,7 +145,6 @@ async def torrents():
     all_torrents = list_torrents()
     return [t for t in all_torrents if t["state"] != "missingFiles"]
 
-
 @app.get("/transfer-info")
 async def transfer():
     info = get_transfer_info()
@@ -95,20 +156,16 @@ async def transfer():
         "ratio": info.get("global_ratio", 0)
     }
 
-
 @app.get("/health")
 async def health():
     return {"status": "ok"}
-
 
 @app.get("/fetch-remote")
 async def fetch_remote():
     from app.tpb import fetch_remote
     return fetch_remote()
 
-@app.get("/hey")
-async def hey():
-    print("hey, deze function moet torrent toevoegen en vlc openen etc")
+"""
 
 if __name__ == "__main__":
     import uvicorn

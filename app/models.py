@@ -11,3 +11,7 @@ class TorrentResponse(BaseModel):
     message: str
     torrent_hash: Optional[str] = None
     vlc_opened: bool = False
+
+
+class MagnetRequest(BaseModel):
+    link: str
