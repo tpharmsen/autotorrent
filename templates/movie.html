@@ -28,6 +28,13 @@ iframe { width: 100%; max-width: 700px; height: 400px; border: none; border-radi
 button.magnet-btn { background: #e91e63; color: white; padding: 5px 12px; border-radius: 5px; font-size: 12px; border: none; cursor: pointer; }
 button.magnet-btn:hover { background: #c2185b; }
 
+.trailer-wrap {
+  display: flex;
+  justify-content: center;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
 /* Progress overlay */
 .progress-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center; }
 .progress-overlay.active { display: flex; }
@@ -76,7 +83,9 @@ button.magnet-btn:hover { background: #c2185b; }
 {% set trailer = movie.videos.results | selectattr("type", "equalto", "Trailer") | selectattr("site", "equalto", "YouTube") | first %}
 {% if trailer %}
 <h2>Trailer</h2>
-<iframe src="https://www.youtube.com/embed/{{ trailer.key }}" allowfullscreen></iframe>
+<div class="trailer-wrap">
+  <iframe src="https://www.youtube.com/embed/{{ trailer.key }}" allowfullscreen></iframe>
+</div>
 {% endif %}
 
 {% if movie.torrents %}
@@ -176,7 +185,7 @@ function pollProgress(hash) {
         startPlayer(hash, name);
       }, 500);
     }
-  }, 250);
+  }, 1000);
 }
 
 async function startPlayer(hash, name) {

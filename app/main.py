@@ -122,6 +122,7 @@ async def interact_torrent(req: MagnetRequest):
 @app.get("/torrentProgress")
 async def torrent_progress(hash: str):
     torrent = get_torrent_info(hash)
+    #print("TORRENT INFO:", torrent["completed"] / 1024 / 1024)
     if not torrent:
         return {"name": "", "completed_mb": 0, "status": "Fetching torrent info…"}
     return {
