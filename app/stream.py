@@ -2,6 +2,7 @@ import os
 import re
 import json
 import subprocess
+import time
 from typing import Optional
 
 from fastapi import Request, HTTPException
@@ -10,10 +11,13 @@ from fastapi.responses import StreamingResponse, PlainTextResponse
 from qb import get_torrent_info, get_torrent_files
 
 VIDEO_EXTENSIONS = (".mkv", ".mp4", ".avi", ".mov", ".wmv")
-FFMPEG_THREADS = "0"  # 0 = let ffmpeg use all available cores
 
+HLS_BASE_DIR = "/home/tpharmsen/Documents/autotorrent/temp/hls_streams/"
+MP4_CACHE_DIR = "/home/tpharmsen/Documents/autotorrent/temp/remux_mp4/"
 
-# ── File resolution ────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────
+# File resolution
+# ─────────────────────────────────────────────────────────────
 
 def _largest_video_file(files: list) -> Optional[dict]:
     video_files = [
@@ -27,12 +31,15 @@ def _resolve_file_path(torrent_hash: str) -> Optional[str]:
     torrent = get_torrent_info(torrent_hash)
     if not torrent:
         return None
+
     files = get_torrent_files(torrent_hash)
     if not files:
         return None
+
     best = _largest_video_file(files)
     if not best:
         return None
+
     return os.path.join(torrent["save_path"], best["name"])
 
 
@@ -40,27 +47,11 @@ def _is_mkv(file_path: str) -> bool:
     return file_path.lower().endswith(".mkv")
 
 
-def _parse_range(range_header: Optional[str], file_size: int) -> tuple[int, int]:
-    if not range_header:
-        return 0, file_size - 1
-    match = re.match(r"bytes=(\d+)-(\d*)", range_header)
-    if not match:
-        return 0, file_size - 1
-    start = int(match.group(1))
-    end = int(match.group(2)) if match.group(2) else file_size - 1
-    return start, min(end, file_size - 1)
-
-
-# ── Subtitle extraction ────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────
+# Subtitle extraction
+# ─────────────────────────────────────────────────────────────
 
 def get_subtitle_tracks(file_path: str) -> list[dict]:
-    """
-    Use ffprobe to list all subtitle streams in the file.
-    Returns a list of dicts with: index, language, title.
-    Only includes text-based formats browsers can handle after WebVTT conversion
-    (subrip, ass, ssa, webvtt, mov_text). Bitmap formats like PGS/VOBSUB are
-    skipped — they require image rendering which can't be done in the browser.
-    """
     TEXT_CODECS = {"subrip", "ass", "ssa", "webvtt", "mov_text", "text"}
 
     try:
@@ -69,69 +60,86 @@ def get_subtitle_tracks(file_path: str) -> list[dict]:
                 "ffprobe", "-v", "quiet",
                 "-print_format", "json",
                 "-show_streams",
-                "-select_streams", "s",  # subtitle streams only
+                "-select_streams", "s",
                 file_path,
             ],
             capture_output=True,
             text=True,
             timeout=10,
         )
+
         data = json.loads(result.stdout)
         tracks = []
+
         for stream in data.get("streams", []):
             codec = stream.get("codec_name", "").lower()
             if codec not in TEXT_CODECS:
-                continue  # skip PGS, VOBSUB bitmap subtitles
+                continue
+
             tags = stream.get("tags", {})
             tracks.append({
-                "index": stream["index"],      # ffmpeg stream index (e.g. 3)
+                "index": stream["index"],
                 "language": tags.get("language", "und"),
-                "title": tags.get("title", tags.get("language", f"Track {len(tracks) + 1}")),
+                "title": tags.get(
+                    "title",
+                    tags.get("language", f"Track {len(tracks) + 1}")
+                ),
             })
+
         return tracks
+
     except Exception as e:
         print(f"[stream] ffprobe subtitle error: {e}")
         return []
 
 
 def extract_subtitle_as_vtt(file_path: str, stream_index: int) -> Optional[str]:
-    """
-    Extract a single subtitle track from the file and return it as a
-    WebVTT string. ffmpeg maps by absolute stream index and converts to vtt.
-    Result is returned as a string (served inline, no temp files needed).
-    """
     try:
         result = subprocess.run(
             [
                 "ffmpeg", "-v", "quiet",
                 "-i", file_path,
-                "-map", f"0:{stream_index}",  # pick exact stream by index
-                "-c:s", "webvtt",             # convert to WebVTT
+                "-map", f"0:{stream_index}",
+                "-c:s", "webvtt",
                 "-f", "webvtt",
-                "pipe:1",                     # output to stdout
+                "pipe:1",
             ],
             capture_output=True,
             timeout=30,
         )
+
         if result.returncode == 0:
             return result.stdout.decode("utf-8", errors="replace")
+
     except Exception as e:
         print(f"[stream] subtitle extract error: {e}")
+
     return None
 
 
-# ── MP4 streaming ──────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────
+# MP4 direct stream (iPhone-safe)
+# ─────────────────────────────────────────────────────────────
 
 def _stream_mp4(file_path: str, request: Request) -> StreamingResponse:
     file_size = os.path.getsize(file_path)
     range_header = request.headers.get("range")
-    start, end = _parse_range(range_header, file_size)
+
+    start, end = 0, file_size - 1
+
+    if range_header:
+        match = re.match(r"bytes=(\d+)-(\d*)", range_header)
+        if match:
+            start = int(match.group(1))
+            end = int(match.group(2)) if match.group(2) else file_size - 1
+
     length = end - start + 1
 
     def iter_file(path: str, offset: int, size: int, chunk: int = 1024 * 512):
         with open(path, "rb") as f:
             f.seek(offset)
             remaining = size
+
             while remaining > 0:
                 data = f.read(min(chunk, remaining))
                 if not data:
@@ -139,107 +147,101 @@ def _stream_mp4(file_path: str, request: Request) -> StreamingResponse:
                 remaining -= len(data)
                 yield data
 
-    status = 206 if range_header else 200
     headers = {
-        "Content-Range": f"bytes {start}-{end}/{file_size}",
+        "Content-Type": "video/mp4",
         "Accept-Ranges": "bytes",
         "Content-Length": str(length),
-        "Content-Type": "video/mp4",
     }
+
+    if range_header:
+        headers["Content-Range"] = f"bytes {start}-{end}/{file_size}"
+
     return StreamingResponse(
         iter_file(file_path, start, length),
-        status_code=status,
+        status_code=206 if range_header else 200,
         headers=headers,
         media_type="video/mp4",
     )
 
 
-# ── MKV → MP4 transcoding stream ──────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────
+# MKV → MP4 REMUX (FAST)
+# ─────────────────────────────────────────────────────────────
 
-def _stream_mkv_transcode(file_path: str, request: Request) -> StreamingResponse:
+def _remux_mkv_to_mp4(file_path: str, torrent_hash: str) -> str:
     """
-    Transcode MKV to H.264/AAC MP4 on the fly.
-    Subtitles are NOT embedded in the video stream — they are served separately
-    via /subtitles/<hash>/<index> and rendered by the browser's native track API.
-    This keeps the transcode fast (video copy when possible) and lets the user
-    toggle subtitles on/off without re-requesting the stream.
+    Remux MKV → MP4 without re-encoding.
     """
-    range_header = request.headers.get("range")
-    seek_seconds = 0
-    if range_header:
-        match = re.match(r"bytes=(\d+)-", range_header)
-        if match:
-            # Rough byte-to-time conversion for seek; not frame-accurate but
-            # good enough for scrubbing since we can't do true byte seeks on
-            # a transcoded stream.
-            start_byte = int(match.group(1))
-            seek_seconds = start_byte // (1024 * 1024 * 2)  # ~2 MB/s estimate
+
+    output_dir = os.path.join(MP4_CACHE_DIR, torrent_hash)
+    os.makedirs(output_dir, exist_ok=True)
+
+    output_path = os.path.join(output_dir, "video.mp4")
+
+    # reuse if already exists
+    if os.path.exists(output_path):
+        return output_path
 
     cmd = [
         "ffmpeg",
         "-loglevel", "error",
-    ]
-    if seek_seconds > 0:
-        cmd += ["-ss", str(seek_seconds)]
-    cmd += [
         "-i", file_path,
-        "-map", "0:v:0",         # first video stream
-        "-map", "0:a:0",         # first audio stream (subtitles handled separately)
-        "-c:v", "copy",          # copy video — no re-encode if already H.264
-        "-c:a", "aac",
-        "-b:a", "192k",
-        "-threads", FFMPEG_THREADS,
-        "-movflags", "frag_keyframe+empty_moov+faststart",
-        "-f", "mp4",
-        "pipe:1",
+        "-c", "copy",
+        #"-movflags", "+faststart",
+        output_path,
     ]
 
-    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    print(f"[stream] remuxing MKV → MP4: {output_path}")
+    subprocess.Popen(cmd)
 
-    def iter_transcode(chunk: int = 1024 * 512):
-        try:
-            while True:
-                data = process.stdout.read(chunk)
-                if not data:
-                    break
-                yield data
-        finally:
-            process.kill()
-            process.wait()
+    # wait until file is usable
+    for _ in range(60):
+        if os.path.exists(output_path) and os.path.getsize(output_path) > 1024 * 1024:
+            break
+        time.sleep(0.5)
 
-    headers = {
-        "Accept-Ranges": "none",
-        "Content-Type": "video/mp4",
-        "X-Content-Type-Options": "nosniff",
-    }
-    return StreamingResponse(iter_transcode(), status_code=200, headers=headers, media_type="video/mp4")
+    return output_path
 
 
-# ── Public endpoint handlers ───────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────
+# Public API
+# ─────────────────────────────────────────────────────────────
 
-def get_stream_response(torrent_hash: str, request: Request) -> StreamingResponse:
+def get_stream_response(torrent_hash: str, request: Request):
     file_path = _resolve_file_path(torrent_hash)
+
     if not file_path:
         raise HTTPException(status_code=404, detail="Torrent file not found")
+
     if _is_mkv(file_path):
-        return _stream_mkv_transcode(file_path, request)
+        mp4_path = _remux_mkv_to_mp4(file_path, torrent_hash)
+        return _stream_mp4(mp4_path, request)
+
     return _stream_mp4(file_path, request)
 
 
+# ─────────────────────────────────────────────────────────────
+# Subtitles API
+# ─────────────────────────────────────────────────────────────
+
 def get_subtitle_tracks_response(torrent_hash: str) -> list[dict]:
-    """Return list of available subtitle tracks for the frontend to build <track> elements."""
     file_path = _resolve_file_path(torrent_hash)
+
     if not file_path or not _is_mkv(file_path):
         return []
+
     return get_subtitle_tracks(file_path)
 
 
 def get_subtitle_vtt_response(torrent_hash: str, stream_index: int) -> PlainTextResponse:
-    """Extract and serve a single subtitle track as WebVTT."""
     file_path = _resolve_file_path(torrent_hash)
+
     if not file_path:
         raise HTTPException(status_code=404, detail="Torrent file not found")
+
     vtt = extract_subtitle_as_vtt(file_path, stream_index)
+
     if not vtt:
-        raise HTTPException(status_code=404, detail="Subtitle track not found or not extractable")
+        raise HTTPException(status_code=404, detail="Subtitle track not found")
+
     return PlainTextResponse(vtt, media_type="text/vtt")
