@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import os
@@ -57,6 +57,16 @@ async def index(request: Request):
         "trending": trending
     })
 
+
+@app.get("/search/{query}", response_class=HTMLResponse)
+async def movie_search(request: Request, query: str):
+    movies = search_movies(query)
+    #print(f"[search] Found {len(movies)} results for query '{query}'")
+    print(movies[0].keys())
+    return templates.TemplateResponse(
+        "search.html",
+        {"request": request, "movies": movies}
+    )
 
 @app.get("/movie/{title}", response_class=HTMLResponse)
 async def movie_detail(request: Request, title: str):

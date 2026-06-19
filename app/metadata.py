@@ -21,6 +21,16 @@ def search_movie(title: str) -> dict | None:
     results = response.json().get("results", [])
     return results[0] if results else None
 
+def search_movies(query: str) -> list:
+    response = requests.get(
+        f"{BASE_URL}/search/movie",
+        headers=HEADERS,
+        params={"query": query, "language": "en-US"}
+    )
+    response.raise_for_status()
+    
+    return response.json().get("results", [])
+
 
 def get_movie_detail(movie_id: int) -> dict:
     response = requests.get(
