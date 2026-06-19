@@ -3,13 +3,12 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
-
-API_KEY = os.getenv("TMDB_API_KEY")
+from vars import MOVIE_URL, TMDB_API_RA_KEY
 HEADERS = {
-    "Authorization": f"Bearer {os.getenv('TMDB_API_RA_KEY')}",
+    "Authorization": f"Bearer {TMDB_API_RA_KEY}",
     "accept": "application/json"
 }
-BASE_URL = "https://api.themoviedb.org/3"
+BASE_URL = MOVIE_URL
 
 
 def search_movie(title: str) -> dict | None:

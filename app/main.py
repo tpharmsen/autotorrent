@@ -11,6 +11,7 @@ from metadata import *
 from tpb import *
 from vlc import *
 from stream import * # Contains get_stream_response, start_transcode_response, get_hls_segment
+from cleanup import *
 import threading
 
 app = FastAPI()
@@ -137,8 +138,36 @@ async def torrent_progress(hash: str):
     }
 
 
+@app.delete("/admin/wipe-all")
+async def wipe_all(delete_files: bool = True):
+    """
+    FULL RESET:
+    - qBittorrent torrents
+    - downloaded files (optional)
+    - HLS cache
+    """
+
+    try:
+        success, torrent_count = wipe_all_qbittorrent(delete_files=delete_files)
+        print(f"[cleanup] Wiped {torrent_count} torrents from qBittorrent (delete_files={delete_files})")
+        wipe_all_hls()
+        print(f"[cleanup] Wiped HLS cache")
+
+        return {
+            "status": success,
+            "torrents_removed": torrent_count,
+            "files_deleted": delete_files
+        }
+
+    except Exception as e:
+        return {
+            "status": "error",
+            "detail": str(e)
+        }
+    
 if __name__ == "__main__":
     import uvicorn
     ip = get_local_ip()
     print(f" UI: http://{ip}:5000")
+    
     uvicorn.run(app, host="0.0.0.0", port=5000)
