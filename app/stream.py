@@ -11,9 +11,10 @@ from fastapi.responses import FileResponse, PlainTextResponse
 from qb import get_torrent_info, get_torrent_files
 
 VIDEO_EXTENSIONS = (".mkv", ".mp4", ".avi", ".mov", ".wmv")
+from vars import HLS_BASE_DIR
 
-HLS_BASE_DIR = "/home/tpharmsen/Documents/autotorrent/temp/hls_streams/"
-MP4_CACHE_DIR = "/home/tpharmsen/Documents/autotorrent/temp/remux_mp4/"
+
+
 
 # Keep track of active background ffmpeg workers to prevent duplicates
 _active_transcodes = {}
@@ -71,28 +72,26 @@ def _ensure_hls(torrent_hash: str, file_path: str) -> str:
     #if torrent_hash in _active_transcodes:
     #    if _active_transcodes[torrent_hash].poll() is None:
     #        return playlist_path
+    segment_type = "fmp4" if file_path.lower().endswith(".mp4") else "mpegts"
+    print(f"[stream] Using segment type: {segment_type}")
 
     cmd = [
         "ffmpeg",
         "-loglevel", "error",
-        # Tolerate growing torrent contents safely
         "-fflags", "+genpts+discardcorrupt",
         "-err_detect", "ignore_err",
         "-i", file_path,
-        
-        # Video: Copy stream directly (Lightning fast, uses 0% CPU)
+
         "-c:v", "copy",
-        
-        # Audio: Transcode to AAC stereo (Required because iOS chokes on DTS/AC3 tracks)
         "-c:a", "aac",
         "-b:a", "128k",
         "-ac", "2",
-        
-        # HLS Format configuration
+
         "-f", "hls",
-        "-hls_time", "4",               # 4-second file chunks
-        "-hls_playlist_type", "event",  # Appends to playlist dynamically as file grows
+        "-hls_time", "4",
+        "-hls_playlist_type", "event",
         "-hls_segment_filename", os.path.join(output_dir, "seg_%03d.ts"),
+        "-hls_segment_type", segment_type,
         playlist_path
     ]
 
@@ -105,7 +104,6 @@ def _ensure_hls(torrent_hash: str, file_path: str) -> str:
         if os.path.exists(playlist_path) and os.path.getsize(playlist_path) > 0:
             break
         time.sleep(0.5)
-    print(">>> FOUND INDEX HLS FILE")
     return playlist_path
 
 

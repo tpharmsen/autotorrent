@@ -2,6 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 import re
 
+from vars import PIRATE_URL
 QUALITY_REGEX = r"(2160p|1080p|720p|480p)"
 SE_REGEX = r"S(\d{1,2})E(\d{1,2})"
 
@@ -15,10 +16,10 @@ JUNK = [
 
 
 def fetch_remote():
-    url = "https://thepibay.site/top/200"
+    pirate_url = PIRATE_URL
     headers = {"User-Agent": "Mozilla/5.0"}
 
-    response = requests.get(url, headers=headers)
+    response = requests.get(pirate_url, headers=headers)
     soup = BeautifulSoup(response.text, "html.parser")
 
     items = []

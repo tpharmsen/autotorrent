@@ -14,9 +14,6 @@ body { font-family: Arial; background: #111; color: white; margin: 0; padding: 2
 .cast { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
 .actor { background: #222; padding: 8px 12px; border-radius: 6px; font-size: 13px; }
 h2 { border-bottom: 1px solid #333; padding-bottom: 8px; max-width: 1000px; margin: 30px auto 10px; }
-.review { background: #222; padding: 15px; border-radius: 8px; margin-bottom: 10px; max-width: 1000px; margin-left: auto; margin-right: auto; }
-.review-author { font-weight: bold; margin-bottom: 5px; }
-.review-content { color: #aaa; font-size: 13px; line-height: 1.5; }
 iframe { width: 100%; max-width: 700px; height: 400px; border: none; border-radius: 10px; margin-top: 10px; }
 .torrent-table { width: 100%; max-width: 1000px; margin: 0 auto; border-collapse: collapse; }
 .torrent-table th { text-align: left; color: #aaa; font-size: 12px; padding: 8px 12px; border-bottom: 1px solid #333; }
@@ -42,7 +39,7 @@ button.magnet-btn:hover { background: #c2185b; }
 .progress-title { font-size: 13px; color: #aaa; margin: 0 0 6px; }
 .progress-name { font-size: 16px; color: #fff; font-weight: 500; margin: 0 0 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .progress-track { background: #2a2a2a; border-radius: 999px; height: 8px; overflow: hidden; margin-bottom: 10px; }
-.progress-fill { height: 100%; background: #e91e63; border-radius: 999px; transition: width 0.25s ease; width: 0%; }
+.progress-fill { height: 100%; background: #e91e63; border-radius: 999px; transition: width 1.25s ease; width: 0%; }
 .progress-meta { display: flex; justify-content: space-between; font-size: 12px; color: #888; }
 .progress-status { margin-top: 16px; font-size: 13px; color: #aaa; text-align: center; }
 
@@ -117,16 +114,6 @@ button.magnet-btn:hover { background: #c2185b; }
 </table>
 {% endif %}
 
-{% if movie.reviews.results %}
-<h2>Reviews</h2>
-{% for review in movie.reviews.results[:3] %}
-<div class="review">
-    <div class="review-author">{{ review.author }}</div>
-    <div class="review-content">{{ review.content[:400] }}...</div>
-</div>
-{% endfor %}
-{% endif %}
-
 <!-- Progress overlay -->
 <div class="progress-overlay" id="overlay">
   <div class="progress-card">
@@ -151,7 +138,7 @@ button.magnet-btn:hover { background: #c2185b; }
 </div>
 
 <script>
-const MIN_MB = 75;
+const MIN_MB = 50;
 
 async function interactTorrent(magnet) {
   stopPlayer();

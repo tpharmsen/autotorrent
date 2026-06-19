@@ -7,10 +7,7 @@ from typing import Optional
 
 load_dotenv()
 
-QBITTORRENT_URL = os.getenv("QB_URL")
-QB_USER = os.getenv("QB_USER")
-QB_PASS = os.getenv("QB_PASS")
-SAVE_PATH = os.getenv("SAVE_PATH")
+from vars import QB_URL, QB_USER, QB_PASS, QB_SAVE_PATH
 TIMEOUT = 120
 INTERVAL = 0.25
 
@@ -19,31 +16,64 @@ _session: Optional[requests.Session] = None
 
 # ── Session ────────────────────────────────────────────────────────────────────
 
-def get_session() -> Optional[requests.Session]:
+def wait_for_qbittorrent(session: requests.Session, timeout=15):
+    """
+    Waits until qBittorrent WebUI is ready.
+    """
+    start = time.time()
+
+    while time.time() - start < timeout:
+        try:
+            r = session.get(QB_URL, timeout=2)
+
+            if r.status_code == 200:
+                return True
+
+        except requests.exceptions.RequestException:
+            pass
+
+        time.sleep(0.25)
+
+    return False
+
+
+def login_qbittorrent(session: requests.Session) -> bool:
+    r = session.post(
+        QB_URL + "/api/v2/auth/login",
+        data={"username": QB_USER, "password": QB_PASS},
+        timeout=5,
+    )
+    return r.status_code == 200 and r.text == "Ok."
+
+
+def get_session():
     global _session
+
     if _session:
         return _session
 
     try:
         subprocess.Popen(["qbittorrent-nox"])
-        time.sleep(2)
 
         session = requests.Session()
-        r = session.post(
-            f"{QBITTORRENT_URL}/api/v2/auth/login",
-            data={"username": QB_USER, "password": QB_PASS},
-            timeout=10,
-        )
 
-        if r.status_code == 200 and r.text == "Ok.":
+        # 🔥 wait until WebUI is alive (NO fixed sleep)
+        if not wait_for_qbittorrent(session):
+            print("[qb] WebUI did not start in time")
+            return None
+
+        # 🔐 login
+        if login_qbittorrent(session):
             _session = session
+            print("[qb] logged in to qBittorrent WebUI")
             return session
+
+        print("[qb] login failed")
 
     except Exception as e:
         print(f"[qb] session error: {e}")
 
     return None
-
 
 # ── Torrents ───────────────────────────────────────────────────────────────────
 
@@ -53,12 +83,12 @@ def add_magnet(magnet: str, paused: bool = False) -> dict:
         return {"success": False, "message": "No qBittorrent session"}
 
     r = session.post(
-        f"{QBITTORRENT_URL}/api/v2/torrents/add",
+        f"{QB_URL}/api/v2/torrents/add",
         data={
             "urls": magnet,
             "sequentialDownload": "true",
             "firstLastPiecePrio": "false",
-            "savepath": SAVE_PATH,
+            "savepath": QB_SAVE_PATH,
             "paused": str(paused).lower(),
         },
     )
@@ -89,7 +119,7 @@ def _patch_piece_priority(session: requests.Session, torrent_hash: str) -> None:
     # Only enable firstLastPiecePrio if it's MP4 with no MKVs
     if has_mp4:
         session.post(
-            f"{QBITTORRENT_URL}/api/v2/torrents/toggleFirstLastPiecePrio",
+            f"{QB_URL}/api/v2/torrents/toggleFirstLastPiecePrio",
             data={"hashes": torrent_hash},
         )
         print(f"[qb] enabled firstLastPiecePrio for MP4 torrent {torrent_hash}")
@@ -105,7 +135,7 @@ def get_torrent_hash_by_magnet(session: requests.Session, magnet_link: str) -> O
 
     # If not found, get the most recently added torrent
     try:
-        response = session.get(f"{QBITTORRENT_URL}/api/v2/torrents/info", params={"limit": 1})
+        response = session.get(f"{QB_URL}/api/v2/torrents/info", params={"limit": 1})
         if response.status_code == 200 and response.json():
             #print("RECENT HASH:", response.json()[0].get('hash'))
             return response.json()[0].get('hash')
@@ -120,7 +150,7 @@ def list_torrents() -> list:
     if not session:
         return []
 
-    r = session.get(f"{QBITTORRENT_URL}/api/v2/torrents/info")
+    r = session.get(f"{QB_URL}/api/v2/torrents/info")
     return r.json() if r.status_code == 200 else []
 
 
@@ -131,7 +161,7 @@ def get_torrent_info(torrent_hash: str) -> Optional[dict]:
         return None
 
     r = session.get(
-        f"{QBITTORRENT_URL}/api/v2/torrents/info",
+        f"{QB_URL}/api/v2/torrents/info",
         params={"hashes": torrent_hash},
     )
     if r.status_code == 200 and r.json():
@@ -146,10 +176,22 @@ def get_torrent_files(torrent_hash: str) -> Optional[list]:
         return None
 
     r = session.get(
-        f"{QBITTORRENT_URL}/api/v2/torrents/files",
+        f"{QB_URL}/api/v2/torrents/files",
         params={"hash": torrent_hash},
     )
     return r.json() if r.status_code == 200 else None
+
+def delete_torrent(torrent_hash: str, delete_files: bool = True) -> bool:
+    """Delete a torrent by hash. Returns True if successful."""
+    session = get_session()
+    if not session:
+        return False
+
+    r = session.post(
+        f"{QB_URL}/api/v2/torrents/delete",
+        data={"hashes": torrent_hash, "deleteFiles": str(delete_files).lower()},
+    )
+    return r.status_code == 200
 
 
 # ── Transfer ───────────────────────────────────────────────────────────────────
@@ -159,5 +201,5 @@ def get_transfer_info() -> dict:
     if not session:
         return {}
 
-    r = session.get(f"{QBITTORRENT_URL}/api/v2/transfer/info")
+    r = session.get(f"{QB_URL}/api/v2/transfer/info")
     return r.json() if r.status_code == 200 else {}
