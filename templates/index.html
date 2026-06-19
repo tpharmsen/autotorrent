@@ -1,157 +1,31 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Movie Posters</title>
-    <style>
-        body {
-            font-family: Arial;
-            background: #111;
-            color: white;
-            margin: 0;
-            padding: 20px;
-        }
-        h1 {
-            text-align: center;
-        }
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-            gap: 15px;
-            padding: 20px;
-        }
-        .card {
-            background: #222;
-            border-radius: 10px;
-            overflow: hidden;
-            transition: 0.2s;
-        }
-        .card:hover {
-            transform: scale(1.05);
-        }
-        img {
-            width: 100%;
-            display: block;
-        }
-        .filename {
-            font-size: 12px;
-            text-align: center;
-            padding: 8px;
-            color: #aaa;
-        }
-        a {
-            text-decoration: none;
-            color: inherit;
-        }
-        .search-container {
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-            margin: 20px auto 30px auto;
-            max-width: 700px;
-        }
-
-        .search-container input {
-            flex: 1;
-            padding: 12px;
-            border-radius: 8px;
-            border: 1px solid #333;
-            background: #222;
-            color: white;
-            font-size: 16px;
-        }
-
-        .search-container input:focus {
-            outline: none;
-            border-color: #e91e63;
-        }
-
-        .search-container button {
-            background: #e91e63;
-            color: white;
-            border: none;
-            padding: 0 20px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-
-        .search-container button:hover {
-            background: #c2185b;
-        }
-    </style>
+<title>Movie Posters</title>
+<link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
-    <h1>🎬 Movie Posters</h1>
+<h1>🎬 Movie Posters</h1>
 
-    <div class="search-container">
-        <input
-            type="text"
-            id="movie-search"
-            placeholder="Search for a movie..."
-            onkeydown="handleSearch(event)"
-        >
-        <button onclick="searchMovie()">Search</button>
-    </div>
+<div class="search-container">
+  <input type="text" id="movie-search" placeholder="Search for a movie...">
+  <button id="search-btn">Search</button>
+</div>
 
-    <div class="grid">
-        {% for poster in posters %}
-        <a href="/movie/{{ poster.rsplit('.', 1)[0] }}">
-            <div class="card">
-                <img src="/posters/{{ poster }}" alt="{{ poster }}">
-            </div>
-        </a>
-        {% endfor %}
+<div class="grid">
+  {% for poster in posters %}
+  <a href="/movie/{{ poster.rsplit('.', 1)[0] }}">
+    <div class="card">
+      <img src="/posters/{{ poster }}" alt="{{ poster }}">
     </div>
+  </a>
+  {% endfor %}
+</div>
 
-    <div style="position: fixed; top: 10px; right: 10px;">
-        <button
-            onclick="wipeAll()"
-            style="
-              background:#e91e63;
-              color:white;
-              border:none;
-              padding:10px 14px;
-              border-radius:8px;
-              cursor:pointer;
-              font-weight:bold;
-            ">
-            Wipe Cache
-        </button>
-    </div>
+<div class="wipe-container">
+  <button id="wipe-btn">Wipe Cache</button>
+</div>
+
+<script src="/static/js/client.js"></script>
 </body>
 </html>
-
-<script>
-async function wipeAll() {
-    const confirm1 = confirm("This will delete ALL torrents + files + streams. Continue?");
-    if (!confirm1) return;
-
-    const res = await fetch("/admin/wipe-all?delete_files=true", {
-        method: "DELETE"
-    });
-
-    const data = await res.json();
-    alert(
-        `Wipe complete\n` +
-        `Torrents removed: ${data.torrents_removed}`
-    );
-
-    location.reload();
-}
-
-function searchMovie() {
-    const query = document.getElementById("movie-search").value.trim();
-
-    if (!query) {
-        return;
-    }
-
-    window.location.href = `/search/${encodeURIComponent(query)}`;
-}
-
-function handleSearch(event) {
-    if (event.key === "Enter") {
-        searchMovie();
-    }
-}
-</script>
