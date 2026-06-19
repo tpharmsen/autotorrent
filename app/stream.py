@@ -6,7 +6,7 @@ import time
 from typing import Optional
 
 from fastapi import Request, HTTPException
-from fastapi.responses import StreamingResponse, PlainTextResponse
+from fastapi.responses import FileResponse, PlainTextResponse
 
 from qb import get_torrent_info, get_torrent_files
 
@@ -14,6 +14,11 @@ VIDEO_EXTENSIONS = (".mkv", ".mp4", ".avi", ".mov", ".wmv")
 
 HLS_BASE_DIR = "/home/tpharmsen/Documents/autotorrent/temp/hls_streams/"
 MP4_CACHE_DIR = "/home/tpharmsen/Documents/autotorrent/temp/remux_mp4/"
+
+# Keep track of active background ffmpeg workers to prevent duplicates
+_active_transcodes = {}
+
+os.makedirs(HLS_BASE_DIR, exist_ok=True)
 
 # ─────────────────────────────────────────────────────────────
 # File resolution
@@ -45,6 +50,120 @@ def _resolve_file_path(torrent_hash: str) -> Optional[str]:
 
 def _is_mkv(file_path: str) -> bool:
     return file_path.lower().endswith(".mkv")
+
+
+# ─────────────────────────────────────────────────────────────
+# Background HLS Stream Engine (iPhone Safe)
+# ─────────────────────────────────────────────────────────────
+
+def _ensure_hls(torrent_hash: str, file_path: str) -> str:
+    """
+    Spawns an asynchronous FFmpeg worker that transcodes the stream into HLS.
+    Uses video stream copying (instant) and transcodes audio to stereo AAC 
+    to guarantee flawless audio playback on iOS/Safari.
+    """
+    output_dir = os.path.join(HLS_BASE_DIR, torrent_hash)
+    os.makedirs(output_dir, exist_ok=True)
+    
+    playlist_path = os.path.join(output_dir, "index.m3u8")
+
+    # If already running and active, don't start another process
+    #if torrent_hash in _active_transcodes:
+    #    if _active_transcodes[torrent_hash].poll() is None:
+    #        return playlist_path
+
+    cmd = [
+        "ffmpeg",
+        "-loglevel", "error",
+        # Tolerate growing torrent contents safely
+        "-fflags", "+genpts+discardcorrupt",
+        "-err_detect", "ignore_err",
+        "-i", file_path,
+        
+        # Video: Copy stream directly (Lightning fast, uses 0% CPU)
+        "-c:v", "copy",
+        
+        # Audio: Transcode to AAC stereo (Required because iOS chokes on DTS/AC3 tracks)
+        "-c:a", "aac",
+        "-b:a", "128k",
+        "-ac", "2",
+        
+        # HLS Format configuration
+        "-f", "hls",
+        "-hls_time", "4",               # 4-second file chunks
+        "-hls_playlist_type", "event",  # Appends to playlist dynamically as file grows
+        "-hls_segment_filename", os.path.join(output_dir, "seg_%03d.ts"),
+        playlist_path
+    ]
+
+    print(f"[stream] Starting HLS encoding pipeline for hash: {torrent_hash}")
+    process = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    _active_transcodes[torrent_hash] = process
+
+    # Race protection: Brief block until the initial .m3u8 index file manifests
+    for _ in range(30):
+        if os.path.exists(playlist_path) and os.path.getsize(playlist_path) > 0:
+            break
+        time.sleep(0.5)
+    print(">>> FOUND INDEX HLS FILE")
+    return playlist_path
+
+
+# ─────────────────────────────────────────────────────────────
+# Public API Entrypoints (Called by main.py)
+# ─────────────────────────────────────────────────────────────
+
+def get_stream_response(torrent_hash: str, request: Request):
+    """
+    Responds to GET /stream/{torrent_hash}
+    """
+    file_path = _resolve_file_path(torrent_hash)
+    if not file_path:
+        raise HTTPException(status_code=404, detail="Torrent file not found")
+
+    playlist_path = _ensure_hls(torrent_hash, file_path)
+    if not os.path.exists(playlist_path):
+        raise HTTPException(status_code=500, detail="Failed to initialize HLS stream container")
+
+    return FileResponse(playlist_path, media_type="application/x-mpegURL")
+
+
+def start_transcode_response(torrent_hash: str):
+    """
+    Responds to GET /stream/{torrent_hash}/prepare
+    """
+    file_path = _resolve_file_path(torrent_hash)
+    print(f"[stream] Preparing HLS for torrent hash: {torrent_hash}, file: {file_path}")
+    if not file_path:
+        raise HTTPException(status_code=404, detail="Torrent file not found")
+
+    playlist_path = _ensure_hls(torrent_hash, file_path)
+    if not os.path.exists(playlist_path):
+        raise HTTPException(status_code=500, detail="Failed to parse transcode parameters")
+
+    return {
+        "status": "ready",
+        "playlist": f"/stream/{torrent_hash}/hls/index.m3u8"
+    }
+
+
+def get_hls_segment(torrent_hash: str, filename: str):
+    """
+    Serves active playlist updates (.m3u8) and video stream segments (.ts)
+    """
+    segment_path = os.path.join(HLS_BASE_DIR, torrent_hash, filename)
+    if not os.path.exists(segment_path):
+        raise HTTPException(status_code=404, detail="Requested HLS resource not found")
+
+    # FIX: Use strict, lowercase web-standard MIME types
+    if filename.endswith(".m3u8"):
+        media_type = "application/vnd.apple.mpegurl"  # Native Apple/Safari standard
+    elif filename.endswith(".ts"):
+        media_type = "video/mp2t"                     # Must be lowercase
+    else:
+        media_type = "application/octet-stream"
+
+    return FileResponse(segment_path, media_type=media_type)
 
 
 # ─────────────────────────────────────────────────────────────
@@ -115,109 +234,6 @@ def extract_subtitle_as_vtt(file_path: str, stream_index: int) -> Optional[str]:
         print(f"[stream] subtitle extract error: {e}")
 
     return None
-
-
-# ─────────────────────────────────────────────────────────────
-# MP4 direct stream (iPhone-safe)
-# ─────────────────────────────────────────────────────────────
-
-def _stream_mp4(file_path: str, request: Request) -> StreamingResponse:
-    file_size = os.path.getsize(file_path)
-    range_header = request.headers.get("range")
-
-    start, end = 0, file_size - 1
-
-    if range_header:
-        match = re.match(r"bytes=(\d+)-(\d*)", range_header)
-        if match:
-            start = int(match.group(1))
-            end = int(match.group(2)) if match.group(2) else file_size - 1
-
-    length = end - start + 1
-
-    def iter_file(path: str, offset: int, size: int, chunk: int = 1024 * 512):
-        with open(path, "rb") as f:
-            f.seek(offset)
-            remaining = size
-
-            while remaining > 0:
-                data = f.read(min(chunk, remaining))
-                if not data:
-                    break
-                remaining -= len(data)
-                yield data
-
-    headers = {
-        "Content-Type": "video/mp4",
-        "Accept-Ranges": "bytes",
-        "Content-Length": str(length),
-    }
-
-    if range_header:
-        headers["Content-Range"] = f"bytes {start}-{end}/{file_size}"
-
-    return StreamingResponse(
-        iter_file(file_path, start, length),
-        status_code=206 if range_header else 200,
-        headers=headers,
-        media_type="video/mp4",
-    )
-
-
-# ─────────────────────────────────────────────────────────────
-# MKV → MP4 REMUX (FAST)
-# ─────────────────────────────────────────────────────────────
-
-def _remux_mkv_to_mp4(file_path: str, torrent_hash: str) -> str:
-    """
-    Remux MKV → MP4 without re-encoding.
-    """
-
-    output_dir = os.path.join(MP4_CACHE_DIR, torrent_hash)
-    os.makedirs(output_dir, exist_ok=True)
-
-    output_path = os.path.join(output_dir, "video.mp4")
-
-    # reuse if already exists
-    if os.path.exists(output_path):
-        return output_path
-
-    cmd = [
-        "ffmpeg",
-        "-loglevel", "error",
-        "-i", file_path,
-        "-c", "copy",
-        #"-movflags", "+faststart",
-        output_path,
-    ]
-
-    print(f"[stream] remuxing MKV → MP4: {output_path}")
-    subprocess.Popen(cmd)
-
-    # wait until file is usable
-    for _ in range(60):
-        if os.path.exists(output_path) and os.path.getsize(output_path) > 1024 * 1024:
-            break
-        time.sleep(0.5)
-
-    return output_path
-
-
-# ─────────────────────────────────────────────────────────────
-# Public API
-# ─────────────────────────────────────────────────────────────
-
-def get_stream_response(torrent_hash: str, request: Request):
-    file_path = _resolve_file_path(torrent_hash)
-
-    if not file_path:
-        raise HTTPException(status_code=404, detail="Torrent file not found")
-
-    if _is_mkv(file_path):
-        mp4_path = _remux_mkv_to_mp4(file_path, torrent_hash)
-        return _stream_mp4(mp4_path, request)
-
-    return _stream_mp4(file_path, request)
 
 
 # ─────────────────────────────────────────────────────────────

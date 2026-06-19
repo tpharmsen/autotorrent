@@ -70,7 +70,7 @@ def open_in_vlc(torrent_hash: str, switch_display: bool = True) -> bool:
             time.sleep(INTERVAL)
         
         file_path = os.path.join(torrent["save_path"], best["name"])
-        print(f"[vlc] opening: {file_path}")
+        #print(f"[vlc] opening: {file_path}")
         """
         subprocess.run([
             "vlc",

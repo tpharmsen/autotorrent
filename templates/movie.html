@@ -58,6 +58,7 @@ button.magnet-btn:hover { background: #c2185b; }
   text-shadow: 1px 1px 2px black, -1px -1px 2px black;
 }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.0/dist/hls.min.js"></script>
 </head>
 <body>
 <a class="back" href="/">← Back</a>
@@ -192,43 +193,68 @@ async function startPlayer(hash, name) {
   const video = document.getElementById("video-player");
   const wrap = document.getElementById("player-wrap");
 
-  // Remove any previous subtitle tracks
-  while (video.firstChild) video.removeChild(video.firstChild);
+  stopPlayer();
 
-  // Set video source
-  video.src = `/stream/${hash}`;
   document.getElementById("player-title").textContent = name;
   wrap.classList.add("active");
   wrap.scrollIntoView({ behavior: "smooth" });
 
-  // Fetch available subtitle tracks and inject <track> elements
+  // FIX 1: Hit the prepare endpoint belonging to your new stream.py architecture
+  const res = await fetch(`/stream/${hash}/prepare`);
+  if (!res.ok) {
+    alert("Failed to prepare HLS stream pipeline.");
+    return;
+  }
+  
+  const data = await res.json();
+  // This yields: "/stream/YOUR_HASH/hls/index.m3u8"
+  const src = data.playlist; 
+
+  // Clean old tracks
+  while (video.firstChild) video.removeChild(video.firstChild);
+
+  // HLS playback (Chrome/Firefox/Desktop via hls.js)
+  if (Hls.isSupported()) {
+    const hls = new Hls({
+      lowLatencyMode: true,
+      backBufferLength: 30
+    });
+
+    hls.loadSource(src);
+    hls.attachMedia(video);
+
+    hls.on(Hls.Events.MANIFEST_PARSED, function () {
+      video.play();
+    });
+
+  } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+    // FIX 2: iPhone Native Safari HLS target
+    video.src = src;
+    video.play();
+  } else {
+    alert("HLS protocol not supported in this browser environment.");
+  }
+
+  // Subtitles cleanup/loading
   try {
     const res = await fetch(`/subtitleTracks/${hash}`);
     const tracks = await res.json();
 
-    if (tracks.length > 0) {
-      tracks.forEach((track, i) => {
-        const el = document.createElement("track");
-        el.kind = "subtitles";
-        el.label = track.title;
-        el.srclang = track.language;
-        el.src = `/subtitles/${hash}/${track.index}`;
-        // Default: enable English if present, otherwise first track
-        if (track.language === "eng" || (i === 0 && !tracks.find(t => t.language === "eng"))) {
-          el.default = true;
-        }
-        video.appendChild(el);
-      });
-      const langs = tracks.map(t => t.title).join(", ");
-      document.getElementById("subtitle-info").textContent = `Subtitles available: ${langs} — use the CC button in the player to toggle`;
-    } else {
-      document.getElementById("subtitle-info").textContent = "";
-    }
-  } catch (e) {
-    console.warn("Could not load subtitle tracks:", e);
-  }
+    tracks.forEach((track, i) => {
+      const el = document.createElement("track");
+      el.kind = "subtitles";
+      el.label = track.title;
+      el.srclang = track.language;
+      el.src = `/subtitles/${hash}/${track.index}`;
 
-  video.play();
+      if (i === 0) el.default = true;
+
+      video.appendChild(el);
+    });
+
+  } catch (e) {
+    console.warn("Subtitle initialization error:", e);
+  }
 }
 
 function stopPlayer() {
