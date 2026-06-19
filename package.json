@@ -1,0 +1,24 @@
+{
+  "name": "autotorrent",
+  "version": "1.0.0",
+  "description": "A lightweight self-hosted media automation dashboard built with FastAPI, qBittorrent, and a custom torrent metadata parser.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tpharmsen/autotorrent.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/tpharmsen/autotorrent/issues"
+  },
+  "homepage": "https://github.com/tpharmsen/autotorrent#readme",
+  "devDependencies": {
+    "typescript": "^6.0.3"
+  }
+}
