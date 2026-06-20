@@ -11,7 +11,7 @@
     "url": "git+https://github.com/tpharmsen/autotorrent.git"
   },
   "keywords": [],
-  "author": "",
+  "author": "tpharmsen",
   "license": "ISC",
   "type": "commonjs",
   "bugs": {

@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>{{ movie.title }}</title>
+<style>
+body { font-family: Arial; background: #111; color: white; margin: 0; padding: 20px; }
+.back { color: #aaa; text-decoration: none; display: inline-block; margin-bottom: 20px; }
+.back:hover { color: white; }
+.hero { display: flex; gap: 40px; max-width: 1000px; margin: 0 auto; }
+.poster img { width: 300px; border-radius: 10px; }
+.info h1 { margin-top: 0; }
+.meta { color: #aaa; margin-bottom: 15px; }
+.overview { line-height: 1.6; margin-bottom: 20px; }
+.cast { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+.actor { background: #222; padding: 8px 12px; border-radius: 6px; font-size: 13px; }
+h2 { border-bottom: 1px solid #333; padding-bottom: 8px; max-width: 1000px; margin: 30px auto 10px; }
+iframe { width: 100%; max-width: 700px; height: 400px; border: none; border-radius: 10px; margin-top: 10px; }
+.torrent-table { width: 100%; max-width: 1000px; margin: 0 auto; border-collapse: collapse; }
+.torrent-table th { text-align: left; color: #aaa; font-size: 12px; padding: 8px 12px; border-bottom: 1px solid #333; }
+.torrent-table td { padding: 10px 12px; border-bottom: 1px solid #222; font-size: 13px; }
+.torrent-table tr:hover td { background: #1a1a1a; }
+.torrent-name { color: #ddd; }
+.seed { color: #4caf50; }
+.leech { color: #f44336; }
+button.magnet-btn { background: #e91e63; color: white; padding: 5px 12px; border-radius: 5px; font-size: 12px; border: none; cursor: pointer; }
+button.magnet-btn:hover { background: #c2185b; }
+
+.trailer-wrap {
+  display: flex;
+  justify-content: center;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+/* Progress overlay */
+.progress-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center; }
+.progress-overlay.active { display: flex; }
+.progress-card { background: #1a1a1a; border: 1px solid #333; border-radius: 12px; padding: 28px 32px; width: 420px; max-width: 90vw; }
+.progress-title { font-size: 13px; color: #aaa; margin: 0 0 6px; }
+.progress-name { font-size: 16px; color: #fff; font-weight: 500; margin: 0 0 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.progress-track { background: #2a2a2a; border-radius: 999px; height: 8px; overflow: hidden; margin-bottom: 10px; }
+.progress-fill { height: 100%; background: #e91e63; border-radius: 999px; transition: width 1.25s ease; width: 0%; }
+.progress-meta { display: flex; justify-content: space-between; font-size: 12px; color: #888; }
+.progress-status { margin-top: 16px; font-size: 13px; color: #aaa; text-align: center; }
+
+/* Video player */
+.player-wrap { display: none; max-width: 1000px; margin: 30px auto 0; }
+.player-wrap.active { display: block; }
+.player-wrap video { width: 100%; border-radius: 10px; background: #000; }
+.player-title { font-size: 14px; color: #aaa; margin-bottom: 10px; }
+.subtitle-info { font-size: 12px; color: #666; margin-top: 8px; }
+
+::cue {
+  background-color: transparent;
+  text-shadow: 1px 1px 2px black, -1px -1px 2px black;
+}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.0/dist/hls.min.js"></script>
+</head>
+<body>
+<a class="back" href="/">← Back</a>
+<div class="hero">
+    <div class="poster">
+        <img src="https://image.tmdb.org/t/p/w500{{ movie.poster_path }}" alt="{{ movie.title }}">
+    </div>
+    <div class="info">
+        <h1>{{ movie.title }}</h1>
+        <div class="meta">
+            {{ movie.release_date[:4] }} · ⭐ {{ movie.vote_average | round(1) }} · {{ movie.runtime }} min
+        </div>
+        <div class="overview">{{ movie.overview }}</div>
+        <h2>Cast</h2>
+        <div class="cast">
+            {% for member in movie.credits.cast[:10] %}
+            <div class="actor">{{ member.name }} <span style="color:#aaa">as {{ member.character }}</span></div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+{% set trailer = movie.videos.results | selectattr("type", "equalto", "Trailer") | selectattr("site", "equalto", "YouTube") | first %}
+{% if trailer %}
+<h2>Trailer</h2>
+<div class="trailer-wrap">
+  <iframe src="https://www.youtube.com/embed/{{ trailer.key }}" allowfullscreen></iframe>
+</div>
+{% endif %}
+
+{% if movie.torrents %}
+<h2>Torrents</h2>
+<table class="torrent-table">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Quality</th>
+            <th>Size</th>
+            <th>Seeds</th>
+            <th>Leeches</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for torrent in movie.torrents %}
+        <tr>
+            <td class="torrent-name">{{ torrent.name }}</td>
+            <td>{{ torrent.quality }}</td>
+            <td>{{ torrent.size }}</td>
+            <td class="seed">{{ torrent.seeders }}</td>
+            <td class="leech">{{ torrent.leechers }}</td>
+            <td><button class="magnet-btn" onclick="interactTorrent('{{ torrent.magnet }}')">⬇ Stream</button></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+
+<!-- Progress overlay -->
+<div class="progress-overlay" id="overlay">
+  <div class="progress-card">
+    <p class="progress-title">Buffering torrent</p>
+    <p class="progress-name" id="prog-name"></p>
+    <div class="progress-track">
+      <div class="progress-fill" id="prog-fill"></div>
+    </div>
+    <div class="progress-meta">
+      <span id="prog-bytes"></span>
+      <span id="prog-pct"></span>
+    </div>
+    <p class="progress-status" id="prog-status">Downloading — please wait…</p>
+  </div>
+</div>
+
+<!-- Video player -->
+<div class="player-wrap" id="player-wrap">
+  <p class="player-title" id="player-title"></p>
+  <video id="video-player" controls autoplay playsinline></video>
+  <p class="subtitle-info" id="subtitle-info"></p>
+</div>
+
+<script>
+const MIN_MB = 50;
+
+async function interactTorrent(magnet) {
+  stopPlayer();
+  const res = await fetch("/interactTorrent", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ link: magnet })
+  });
+  const data = await res.json();
+  if (data.hash) pollProgress(data.hash);
+}
+
+function pollProgress(hash) {
+  document.getElementById("overlay").classList.add("active");
+
+  const interval = setInterval(async () => {
+    const res = await fetch(`/torrentProgress?hash=${hash}`);
+    const { name, completed_mb, status } = await res.json();
+    const pct = Math.min(100, Math.round((completed_mb / MIN_MB) * 100));
+
+    document.getElementById("prog-name").textContent = name;
+    document.getElementById("prog-fill").style.width = pct + "%";
+    document.getElementById("prog-bytes").textContent = `${completed_mb.toFixed(1)} MB of ${MIN_MB} MB`;
+    document.getElementById("prog-pct").textContent = pct + "%";
+    document.getElementById("prog-status").textContent = status || "Downloading — please wait…";
+
+    if (completed_mb >= MIN_MB) {
+      clearInterval(interval);
+      document.getElementById("prog-status").textContent = "Starting playback…";
+      setTimeout(() => {
+        document.getElementById("overlay").classList.remove("active");
+        startPlayer(hash, name);
+      }, 500);
+    }
+  }, 1000);
+}
+
+async function startPlayer(hash, name) {
+  const video = document.getElementById("video-player");
+  const wrap = document.getElementById("player-wrap");
+
+  stopPlayer();
+
+  document.getElementById("player-title").textContent = name;
+  wrap.classList.add("active");
+  wrap.scrollIntoView({ behavior: "smooth" });
+
+  // FIX 1: Hit the prepare endpoint belonging to your new stream.py architecture
+  const res = await fetch(`/stream/${hash}/prepare`);
+  if (!res.ok) {
+    alert("Failed to prepare HLS stream pipeline.");
+    return;
+  }
+  
+  const data = await res.json();
+  // This yields: "/stream/YOUR_HASH/hls/index.m3u8"
+  const src = data.playlist; 
+
+  // Clean old tracks
+  while (video.firstChild) video.removeChild(video.firstChild);
+
+  // HLS playback (Chrome/Firefox/Desktop via hls.js)
+  if (Hls.isSupported()) {
+    const hls = new Hls({
+      lowLatencyMode: true,
+      backBufferLength: 30
+    });
+
+    hls.loadSource(src);
+    hls.attachMedia(video);
+
+    hls.on(Hls.Events.MANIFEST_PARSED, function () {
+      video.play();
+    });
+
+  } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+    // FIX 2: iPhone Native Safari HLS target
+    video.src = src;
+    video.play();
+  } else {
+    alert("HLS protocol not supported in this browser environment.");
+  }
+
+  // Subtitles cleanup/loading
+  try {
+    const res = await fetch(`/subtitleTracks/${hash}`);
+    const tracks = await res.json();
+
+    tracks.forEach((track, i) => {
+      const el = document.createElement("track");
+      el.kind = "subtitles";
+      el.label = track.title;
+      el.srclang = track.language;
+      el.src = `/subtitles/${hash}/${track.index}`;
+
+      if (i === 0) el.default = true;
+
+      video.appendChild(el);
+    });
+
+  } catch (e) {
+    console.warn("Subtitle initialization error:", e);
+  }
+}
+
+function stopPlayer() {
+  const video = document.getElementById("video-player");
+  video.pause();
+  video.src = "";
+  while (video.firstChild) video.removeChild(video.firstChild);
+  document.getElementById("player-wrap").classList.remove("active");
+  document.getElementById("subtitle-info").textContent = "";
+}
+</script>
+</body>
+</html>

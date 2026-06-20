@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Search Movies</title>
+  <link rel="stylesheet" href="/styles/styles.css">
+</head>
+<body>
+  <h1>🎬 Search Movies</h1>
+
+  <div class="search-container">
+    <input type="text" id="movie-search" placeholder="Search for a movie...">
+    <button id="search-btn">Search</button>
+  </div>
+
+  <div class="list" id="search-results">
+    <!-- populated by search.ts on load, based on URL path -->
+  </div>
+
+  <script type="module" src="/static/search.js"></script>
+</body>
+</html>

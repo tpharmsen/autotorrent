@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Movie Details</title>
+<link rel="stylesheet" href="/styles/styles.css">
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.0/dist/hls.min.js"></script>
+</head>
+<body>
+<a class="back" href="/">&larr; Back</a>
+
+<div id="movie-detail">
+  <!-- populated by movie.ts: hero (poster, title, meta, overview, cast) + trailer -->
+</div>
+
+<h2>Torrents</h2>
+<div id="torrent-list">
+  <!-- populated by movie.ts: torrent table with Stream buttons -->
+</div>
+
+<!-- Progress overlay, shown while a torrent buffers -->
+<div class="progress-overlay" id="overlay">
+  <div class="progress-card">
+    <p class="progress-title">Buffering torrent</p>
+    <p class="progress-name" id="prog-name"></p>
+    <div class="progress-track">
+      <div class="progress-fill" id="prog-fill"></div>
+    </div>
+    <div class="progress-meta">
+      <span id="prog-bytes"></span>
+      <span id="prog-pct"></span>
+    </div>
+    <p class="progress-status" id="prog-status">Downloading — please wait…</p>
+  </div>
+</div>
+
+<!-- Video player -->
+<div class="player-wrap" id="player-wrap">
+  <p class="player-title" id="player-title"></p>
+  <video id="video-player" controls autoplay playsinline></video>
+  <p class="subtitle-info" id="subtitle-info"></p>
+</div>
+
+<script type="module" src="/static/movie.js"></script>
+</body>
+</html>

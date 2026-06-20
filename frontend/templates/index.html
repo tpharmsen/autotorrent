@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Movie Posters</title>
+  <link rel="stylesheet" href="/styles/styles.css">
+</head>
+<body>
+  <h1>🎬 Movie Posters</h1>
+
+  <div class="search-container">
+    <input type="text" id="movie-search" placeholder="Search for a movie...">
+    <button id="search-btn">Search</button>
+  </div>
+
+  <div class="grid" id="poster-grid">
+    <!-- populated by render.ts via client.ts on load -->
+  </div>
+
+  <div class="wipe-container">
+    <button id="wipe-btn">Wipe Cache</button>
+  </div>
+
+  <script type="module" src="/static/client.js"></script>
+</body>
+</html>
