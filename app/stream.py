@@ -77,6 +77,7 @@ def _ensure_hls(torrent_hash: str, file_path: str) -> str:
     segment_type = "fmp4" if file_path.lower().endswith(".mp4") else "mpegts"
     print(f"[stream] Using segment type: {segment_type}")
 
+    """
     cmd = [
         "ffmpeg",
         "-loglevel", "error",
@@ -92,6 +93,32 @@ def _ensure_hls(torrent_hash: str, file_path: str) -> str:
         "-f", "hls",
         "-hls_time", "4",
         "-hls_playlist_type", "event",
+        "-hls_segment_filename", os.path.join(output_dir, "seg_%03d.ts"),
+        "-hls_segment_type", segment_type,
+        playlist_path
+    ]
+    """
+    cmd = [
+        "ffmpeg",
+        "-loglevel", "error",
+        "-fflags", "+genpts+discardcorrupt+igndts",
+        "-err_detect", "ignore_err",
+        "-analyzeduration", "100M",
+        "-probesize", "100M",
+        "-i", file_path,
+        "-map", "0:v:0",
+        "-map", "0:a:0?",
+        "-c:v", "libx264",
+        "-preset", "veryfast",
+        "-crf", "21",
+        "-pix_fmt", "yuv420p",
+        "-c:a", "aac",
+        "-b:a", "128k",
+        "-ac", "2",
+        "-f", "hls",
+        "-hls_time", "4",
+        "-hls_playlist_type", "event",
+        "-hls_flags", "delete_segments+append_list",
         "-hls_segment_filename", os.path.join(output_dir, "seg_%03d.ts"),
         "-hls_segment_type", segment_type,
         playlist_path
