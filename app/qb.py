@@ -100,10 +100,10 @@ def add_magnet(magnet: str, paused: bool = False) -> dict:
         torrent_hash = get_torrent_hash_by_magnet(session, magnet)
         if torrent_hash:
             break
-        print(f"[qb] waiting for torrent hash... ({t + 1}/{TIMEOUT})")
         time.sleep(INTERVAL)
 
     if torrent_hash:
+        print(f"[qb] toggling piece priority for: {torrent_hash}")
         _patch_piece_priority(session, torrent_hash)
 
     return {"success": True, "message": "Added"}
@@ -115,7 +115,7 @@ def _patch_piece_priority(session: requests.Session, torrent_hash: str) -> None:
     if not files:
         return
     has_mp4 = any(f.get("name", "").lower().endswith(".mp4") for f in files)
-
+    
     # Only enable firstLastPiecePrio if it's MP4 with no MKVs
     if has_mp4:
         session.post(

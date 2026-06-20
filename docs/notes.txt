@@ -4,6 +4,9 @@ mouse input for pc
 searching
 tv series
 ?
+
 react?
+toggle first last prio working??
+larger mp4 not working -> toggle first last prio not active?
 
 npx tsc --watch during python3 app/main.py run
