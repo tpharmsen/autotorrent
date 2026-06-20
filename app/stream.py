@@ -63,10 +63,12 @@ def _ensure_hls(torrent_hash: str, file_path: str) -> str:
     Uses video stream copying (instant) and transcodes audio to stereo AAC 
     to guarantee flawless audio playback on iOS/Safari.
     """
+    print("FLAG 0")
     output_dir = os.path.join(HLS_BASE_DIR, torrent_hash)
     os.makedirs(output_dir, exist_ok=True)
     
     playlist_path = os.path.join(output_dir, "index.m3u8")
+    print("FLAG 1")
 
     # If already running and active, don't start another process
     #if torrent_hash in _active_transcodes:
@@ -100,7 +102,8 @@ def _ensure_hls(torrent_hash: str, file_path: str) -> str:
     _active_transcodes[torrent_hash] = process
 
     # Race protection: Brief block until the initial .m3u8 index file manifests
-    for _ in range(30):
+    for _ in range(60):
+        print(f"[stream] Waiting for playlist to be generated: {playlist_path}")
         if os.path.exists(playlist_path) and os.path.getsize(playlist_path) > 0:
             break
         time.sleep(0.5)

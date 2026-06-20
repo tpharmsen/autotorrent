@@ -1,0 +1,9 @@
+move to typescript/css/html/python struct
+smoother loading bar
+mouse input for pc 
+searching
+tv series
+?
+react?
+
+npx tsc --watch during python3 app/main.py run
