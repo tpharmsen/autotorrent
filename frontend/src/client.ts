@@ -1,18 +1,30 @@
-import { PageData, WipeResponse } from "./types.js";
+import { PosterResponse, WipeResponse } from "./types.js";
 import { renderPosterGrid } from "./render.js";
 
 async function loadPosters(): Promise<void> {
   try {
     const res = await fetch("/api/posters");
     if (!res.ok) throw new Error(`Request failed: ${res.status}`);
-    const data: PageData = await res.json();
-    renderPosterGrid(data.posters);
+
+    const data: PosterResponse = await res.json();
+
+    renderPosterGrid(data.movies, "movies", "movie-grid");
+    renderPosterGrid(data.tv, "tv", "tv-grid");
   } catch (err) {
     console.error("Failed to load posters:", err);
-    const container = document.getElementById("poster-grid");
-    if (container) container.innerHTML = `<p>Failed to load posters.</p>`;
+
+    showGridError("movie-grid");
+    showGridError("tv-grid");
   }
 }
+
+function showGridError(containerId: string): void {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  container.innerHTML = `<p class="error">Failed to load posters.</p>`;
+}
+
 
 function initSearch(): void {
   const input = document.getElementById("movie-search") as HTMLInputElement | null;

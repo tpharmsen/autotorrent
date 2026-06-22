@@ -2,9 +2,10 @@ export interface Poster {
   filename: string;
 }
 
-export interface PageData {
-  posters: string[]; // e.g. ["inception.jpg", "dune.png"]
-}
+export type PosterResponse = {
+  movies: string[];
+  tv: string[];
+};
 
 export interface WipeResponse {
   status: boolean | string;
