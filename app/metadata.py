@@ -11,7 +11,7 @@ HEADERS = {
 BASE_URL = MOVIE_URL
 
 
-def search_movie(title: str) -> dict | None:
+def search_movie_by_title(title: str) -> dict | None:
     response = requests.get(
         f"{BASE_URL}/search/movie",
         headers=HEADERS,
@@ -20,6 +20,15 @@ def search_movie(title: str) -> dict | None:
     response.raise_for_status()
     results = response.json().get("results", [])
     return results[0] if results else None
+
+def search_movie_by_id(id: str) -> dict | None:
+    response = requests.get(
+        f"{BASE_URL}/movie/{id}",
+        headers=HEADERS,
+        params={"language": "en-US"}
+    )
+    response.raise_for_status()
+    return response.json() if response.status_code == 200 else None
 
 def search_movies(query: str) -> list:
     response = requests.get(
@@ -89,8 +98,40 @@ def download_posters(data):
             with open(filename, "wb") as f:
                 f.write(response.content)
 
-if __name__ == "__main__":
+def get_trending_posters_movies():
     trending_movies = get_trending_movies()
+    results = []
+    for r in trending_movies:
+        poster_path = r.get('poster_path')
+        if not poster_path:
+            continue  # skip entries with no poster instead of breaking the grid
+        results.append({
+            "id": r["id"],
+            "title": r.get("original_title") or r.get("title"),
+            "poster_url": "https://image.tmdb.org/t/p/w500" + poster_path,
+        })
+    return results
+
+def get_trending_posters_tv():
     trending_tv = get_trending_tv()
-    download_posters(trending_movies)
-    download_posters(trending_tv)
+    results = []
+    for r in trending_tv:
+        poster_path = r.get('poster_path')
+        if not poster_path:
+            continue  # skip entries with no poster instead of breaking the grid
+        results.append({
+            "id": r["id"],
+            "title": r.get("original_name") or r.get("name"),
+            "poster_url": "https://image.tmdb.org/t/p/w500" + poster_path,
+        })
+    return results
+
+if __name__ == "__main__":
+    trending_movies = get_trending_posters_movies()
+    trending_tv = get_trending_posters_tv()
+    print("Trending Movies Posters:")
+    for movie in trending_movies:
+        print(f"{movie['title']}: {movie['poster_url']}")
+    print("\nTrending TV Posters:")
+    for tv in trending_tv:
+        print(f"{tv['title']}: {tv['poster_url']}")

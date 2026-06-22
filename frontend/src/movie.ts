@@ -13,7 +13,7 @@ declare const Hls: any;
 
 const MIN_MB = 50;
 
-function getTitleFromPath(): string {
+function getIdFromPath(): string {
   const parts = window.location.pathname.split("/");
   return decodeURIComponent(parts[2] ?? "");
 }
@@ -182,11 +182,11 @@ async function interactTorrent(torrent: Torrent): Promise<void> {
 }
 
 async function loadMovie(): Promise<void> {
-  const title = getTitleFromPath();
-  if (!title) return;
+  const movieId = getIdFromPath();
+  if (!movieId) return;
 
   try {
-    const res = await fetch(`/api/movie/${encodeURIComponent(title)}`);
+    const res = await fetch(`/api/movie/${encodeURIComponent(movieId)}`);
     if (!res.ok) {
       if (res.status === 404) {
         const detailEl = document.getElementById("movie-detail");
