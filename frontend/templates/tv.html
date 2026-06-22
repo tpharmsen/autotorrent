@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Series Details</title>
+<link rel="stylesheet" href="/styles/styles.css">
+</head>
+<body>
+<a class="back" href="/">&larr; Back</a>
+<div id="series-detail">
+<!-- populated by tv.js: hero (poster, title, meta, overview, cast) + trailer -->
+</div>
+<h2>Episodes</h2>
+<div id="season-select-wrap">
+<label for="season-select">Season</label>
+<select id="season-select">
+<!-- populated by tv.js: one <option> per season -->
+</select>
+</div>
+<div id="episode-list">
+<!-- populated by tv.js: episode cards/rows for the selected season -->
+</div>
+<script type="module" src="/static/tv.js"></script>
+</body>
+</html>

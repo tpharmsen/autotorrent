@@ -5,7 +5,7 @@ export interface Poster {
 export type PosterResponse = {
   movies: string[];
   tv: string[];
-};
+}
 
 export interface WipeResponse {
   status: boolean | string;
@@ -25,6 +25,7 @@ export interface SearchResultMovie {
 
 export interface SearchResponse {
   movies: SearchResultMovie[];
+  tv: SearchResultMovie[];
 }
 
 // ── Movie detail ────────────────────────────────────────

@@ -107,7 +107,11 @@ async def api_refresh():
 @app.get("/api/search/{query}")
 async def api_search(query: str):
     movies = search_movies(query)
-    return {"movies": movies}
+    tv = search_tv(query)
+    return {
+        "movies": movies, 
+        "tv": tv
+    }
 
 
 @app.get("/api/movie/{title}")
