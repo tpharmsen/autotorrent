@@ -21,7 +21,7 @@ async function loadSearchResults(): Promise<void> {
     const res = await fetch(`/api/search/${encodeURIComponent(query)}`);
     if (!res.ok) throw new Error(`Request failed: ${res.status}`);
     const data: SearchResponse = await res.json();
-    renderSearchResults(data.movies, 'movies', 'search-results-movie');
+    renderSearchResults(data.movies, 'movie', 'search-results-movie');
     renderSearchResults(data.tv, 'tv', 'search-results-tv');
   } catch (err) {
     console.error("Search failed:", err);

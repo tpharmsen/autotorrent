@@ -68,9 +68,13 @@ async def search_page(query: str):
     return FileResponse(os.path.join(PAGES_DIR, "search.html"))
 
 
-@app.get("/movie/{title}")
-async def movie_page(title: str):
+@app.get("/movie/{id}")
+async def movie_page(id: str):
     return FileResponse(os.path.join(PAGES_DIR, "movie.html"))
+
+@app.get("/tv/{id}")
+async def tv_page(id: str):
+    return FileResponse(os.path.join(PAGES_DIR, "tv.html"))
 
 
 # ─────────────────────────────────────────────────────────────
