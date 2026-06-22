@@ -17,7 +17,7 @@ export function escapeHtml(value: string): string {
 /** Renders the poster grid on the home page into #poster-grid */
 export function renderPosterGrid(
   posters: PosterItem[],
-  type: "movies" | "tv",
+  type: "movie" | "tv",
   containerId: string
 ): void {
   const container = document.getElementById(containerId);
@@ -26,7 +26,7 @@ export function renderPosterGrid(
   container.innerHTML = posters
     .map((p) => {
       return `
-        <a href="/movie/${p.id}">
+        <a href="/${type}/${p.id}">
           <div class="card">
             <img src="${p.poster_url}" alt="${escapeHtml(p.title)}" loading="lazy">
           </div>
@@ -42,7 +42,7 @@ export function renderPosterGrid(
  * Falls back to movie.name if movie.title is absent (TV-style results),
  * and shows a placeholder block when there's no poster.
  */
-export function renderSearchResults(movies: SearchResultMovie[], type: "movies" | "tv", containerId: string): void {
+export function renderSearchResults(movies: SearchResultMovie[], type: "movie" | "tv", containerId: string): void {
   const container = document.getElementById(containerId);
   if (!container) return;
 

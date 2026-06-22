@@ -6,7 +6,7 @@ async function loadPosters(): Promise<void> {
     const res = await fetch("/api/posters");
     if (!res.ok) throw new Error(`Request failed: ${res.status}`);
     const data: PosterResponse = await res.json();
-    renderPosterGrid(data.movies, "movies", "movie-grid");
+    renderPosterGrid(data.movies, "movie", "movie-grid");
     renderPosterGrid(data.tv, "tv", "tv-grid");
   } catch (err) {
     console.error("Failed to load posters:", err);
