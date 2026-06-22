@@ -1,8 +1,8 @@
-import { SearchResultMovie, MovieDetail, Torrent } from "./types.js";
+import { SearchResultMovie, MovieDetail, Torrent, PosterItem } from "./types.js";
 
 /** Strips the file extension, e.g. "inception.jpg" -> "inception" */
 function stripExtension(filename: string): string {
-  const lastDot = filename.lastIndexOf(".");
+  const lastDot = filename.lastIndexOf("."); 
   return lastDot === -1 ? filename : filename.slice(0, lastDot);
 }
 
@@ -16,7 +16,7 @@ export function escapeHtml(value: string): string {
 
 /** Renders the poster grid on the home page into #poster-grid */
 export function renderPosterGrid(
-  posters: string[],
+  posters: PosterItem[],
   type: "movies" | "tv",
   containerId: string
 ): void {
@@ -24,13 +24,11 @@ export function renderPosterGrid(
   if (!container) return;
 
   container.innerHTML = posters
-    .map((poster) => {
-      const slug = stripExtension(poster);
-
+    .map((p) => {
       return `
-        <a href="/movie/${encodeURIComponent(slug)}">
+        <a href="/movie/${p.id}">
           <div class="card">
-            <img src="/posters/${type}/${encodeURIComponent(poster)}" alt="${escapeHtml(poster)}">
+            <img src="${p.poster_url}" alt="${escapeHtml(p.title)}" loading="lazy">
           </div>
         </a>
       `;
@@ -57,13 +55,14 @@ export function renderSearchResults(movies: SearchResultMovie[], type: "movies" 
     .map((movie) => {
       const displayTitle = movie.title || movie.name || "";
       const year = movie.release_date ? movie.release_date.slice(0, 4) : "";
+      const movieId = movie.id; // Use the TMDB ID for linking
 
       const posterHtml = movie.poster_path
         ? `<img src="https://image.tmdb.org/t/p/w185${movie.poster_path}" alt="">`
         : `<div class="placeholder"></div>`;
 
       return `
-        <a class="list-item" href="/movie/${encodeURIComponent(displayTitle)}">
+        <a class="list-item" href="/movie/${encodeURIComponent(movieId)}">
           ${posterHtml}
           <div class="info">
             <div class="title">${escapeHtml(displayTitle)}</div>

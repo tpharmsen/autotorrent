@@ -41,17 +41,11 @@ def get_local_ip():
 
 
 def get_movie_posters():
-    return sorted(
-        f for f in os.listdir(POSTER_DIR + "/movies")
-        if f.lower().endswith((".jpg", ".jpeg", ".png", ".webp"))
-    )
+    return get_trending_posters_movies()
 
 
 def get_tv_posters():
-    return sorted(
-        f for f in os.listdir(POSTER_DIR + "/tv")
-        if f.lower().endswith((".jpg", ".jpeg", ".png", ".webp"))
-    )
+    return get_trending_posters_tv()
 
     
 
@@ -114,13 +108,13 @@ async def api_search(query: str):
     }
 
 
-@app.get("/api/movie/{title}")
-async def api_movie_detail(title: str):
-    movie = search_movie(title)
-    if not movie:
-        raise HTTPException(status_code=404, detail="Movie not found on TMDB")
-
-    detail = get_movie_detail(movie["id"])
+@app.get("/api/movie/{id}")
+async def api_movie_detail(id: str):
+    #movie = search_movie_by_id(id)
+    #if not movie:
+    #    raise HTTPException(status_code=404, detail="Movie not found on TMDB")
+    #
+    detail = get_movie_detail(id)
     downloadable_torrents = get_downloadable_torrents(detail["title"])
     detail["torrents"] = downloadable_torrents
     return detail

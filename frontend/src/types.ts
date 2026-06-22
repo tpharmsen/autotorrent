@@ -2,10 +2,17 @@ export interface Poster {
   filename: string;
 }
 
-export type PosterResponse = {
-  movies: string[];
-  tv: string[];
+export interface PosterItem {
+  id: number;
+  title: string;
+  poster_url: string;
 }
+
+export interface PosterResponse {
+  movies: PosterItem[];
+  tv: PosterItem[];
+}
+
 
 export interface WipeResponse {
   status: boolean | string;
