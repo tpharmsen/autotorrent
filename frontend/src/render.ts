@@ -15,22 +15,27 @@ export function escapeHtml(value: string): string {
 }
 
 /** Renders the poster grid on the home page into #poster-grid */
-export function renderPosterGrid(posters: string[]): void {
-  const container = document.getElementById("poster-grid");
+export function renderPosterGrid(
+  posters: string[],
+  type: "movies" | "tv",
+  containerId: string
+): void {
+  const container = document.getElementById(containerId);
   if (!container) return;
 
   container.innerHTML = posters
     .map((poster) => {
       const slug = stripExtension(poster);
+
       return `
         <a href="/movie/${encodeURIComponent(slug)}">
           <div class="card">
-            <img src="/posters/${encodeURIComponent(poster)}" alt="${escapeHtml(poster)}">
+            <img src="/posters/${type}/${encodeURIComponent(poster)}" alt="${escapeHtml(poster)}">
           </div>
         </a>
       `;
     })
-    .join("\n");
+    .join("");
 }
 
 /**

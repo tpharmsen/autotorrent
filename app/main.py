@@ -40,12 +40,20 @@ def get_local_ip():
         return "127.0.0.1"
 
 
-def get_posters():
+def get_movie_posters():
     return sorted(
-        f for f in os.listdir(POSTER_DIR)
+        f for f in os.listdir(POSTER_DIR + "/movies")
         if f.lower().endswith((".jpg", ".jpeg", ".png", ".webp"))
     )
 
+
+def get_tv_posters():
+    return sorted(
+        f for f in os.listdir(POSTER_DIR + "/tv")
+        if f.lower().endswith((".jpg", ".jpeg", ".png", ".webp"))
+    )
+
+    
 
 # ─────────────────────────────────────────────────────────────
 # PAGE ROUTES — serve static HTML shells, no server-side rendering.
@@ -80,10 +88,20 @@ async def api_posters():
     print(f"[api_posters] Refreshing poster cache and returning current posters")
     # Triggers a poster-cache refresh from trending movies, same as the
     # old index() route did, then returns the current poster filenames.
-    trending = get_trending_movies()
-    download_posters(trending)
-    posters = get_posters()
-    return {"posters": posters}
+    return {
+        "movies": get_movie_posters(),
+        "tv": get_tv_posters()
+    }
+
+@app.get("/api/refresh")
+async def api_refresh():
+    print(f"[api_refresh] Refreshing poster cache")
+    # Triggers a poster-cache refresh from trending movies, same as the
+    # old index() route did, but doesn't return any data since the client
+    # will fetch the updated poster list via /api/posters immediately after.
+    download_posters(get_trending_movies())
+    download_posters(get_trending_tv())
+    return {"success": True}
 
 
 @app.get("/api/search/{query}")
