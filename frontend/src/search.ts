@@ -21,11 +21,21 @@ async function loadSearchResults(): Promise<void> {
     const res = await fetch(`/api/search/${encodeURIComponent(query)}`);
     if (!res.ok) throw new Error(`Request failed: ${res.status}`);
     const data: SearchResponse = await res.json();
-    renderSearchResults(data.movies);
+    renderSearchResults(data.movies, 'movies', 'search-results-movie');
+    renderSearchResults(data.tv, 'tv', 'search-results-tv');
   } catch (err) {
     console.error("Search failed:", err);
-    if (container) container.innerHTML = `<p>Search failed — check console for details.</p>`;
+    
+    showSearchError('search-results-movie');
+    showSearchError('search-results-tv');
   }
+}
+
+function showSearchError(containerId: string): void {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  container.innerHTML = `<p class="error">Failed to load search results.</p>`;
 }
 
 function initSearchBox(): void {

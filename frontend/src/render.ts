@@ -44,8 +44,8 @@ export function renderPosterGrid(
  * Falls back to movie.name if movie.title is absent (TV-style results),
  * and shows a placeholder block when there's no poster.
  */
-export function renderSearchResults(movies: SearchResultMovie[]): void {
-  const container = document.getElementById("search-results");
+export function renderSearchResults(movies: SearchResultMovie[], type: "movies" | "tv", containerId: string): void {
+  const container = document.getElementById(containerId);
   if (!container) return;
 
   if (movies.length === 0) {

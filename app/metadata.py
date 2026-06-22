@@ -31,6 +31,16 @@ def search_movies(query: str) -> list:
     
     return response.json().get("results", [])
 
+def search_tv(query: str) -> list:
+    response = requests.get(
+        f"{BASE_URL}/search/tv",
+        headers=HEADERS,
+        params={"query": query, "language": "en-US"}
+    )
+    response.raise_for_status()
+    
+    return response.json().get("results", [])
+
 
 def get_movie_detail(movie_id: int) -> dict:
     response = requests.get(
