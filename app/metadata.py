@@ -60,6 +60,15 @@ def get_movie_detail(movie_id: int) -> dict:
     response.raise_for_status()
     return response.json()
 
+def get_tv_detail(tv_id: int) -> dict:
+    response = requests.get(
+        f"{BASE_URL}/tv/{tv_id}",
+        headers=HEADERS,
+        params={"append_to_response": "credits,videos,reviews", "language": "en-US"}
+    )
+    response.raise_for_status()
+    return response.json()
+
 
 def get_trending_movies(page: int = 1) -> list:
     response = requests.get(
