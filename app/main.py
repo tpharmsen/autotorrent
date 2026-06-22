@@ -11,6 +11,8 @@ from vlc import *
 from stream import *  # Contains get_stream_response, start_transcode_response, get_hls_segment
 from cleanup import *
 import threading
+import subprocess
+import uvicorn
 
 app = FastAPI()
 
@@ -201,9 +203,19 @@ async def wipe_all(delete_files: bool = True):
         }
 
 
-if __name__ == "__main__":
-    import uvicorn
-    ip = get_local_ip()
-    print(f" UI: http://{ip}:5000")
+def get_tailscale_ip():
+    return subprocess.check_output(
+        ["tailscale", "ip", "-4"],
+        text=True
+    ).strip()
 
-    uvicorn.run(app, host="0.0.0.0", port=5000)
+if __name__ == "__main__":
+    ts_ip = get_tailscale_ip()
+
+    print(f"UI: http://{ts_ip}:5000")
+
+    uvicorn.run(
+        app,
+        host=ts_ip,
+        port=5000,
+    )
