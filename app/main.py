@@ -175,6 +175,7 @@ async def subtitle_vtt(torrent_hash: str, stream_index: int):
 # TORRENT CONTROLLERS
 # ─────────────────────────────────────────────────────────────
 
+
 @app.post("/interactTorrent")
 async def interact_torrent(req: MagnetRequest):
     print(f"[interact_torrent] Received magnet link: {req.link}")
@@ -182,26 +183,59 @@ async def interact_torrent(req: MagnetRequest):
     add_result = add_magnet(magnet)
     if not add_result["success"]:
         raise HTTPException(status_code=500, detail=add_result["message"])
-
     torrent_hash = get_torrent_hash_by_magnet(get_session(), magnet)
     if not torrent_hash:
         raise HTTPException(status_code=500, detail="Failed to retrieve torrent hash")
-
     threading.Thread(target=open_in_vlc, args=(torrent_hash,), daemon=True).start()
-
     return {"success": True, "hash": torrent_hash}
-
-
+ 
+ 
 @app.get("/torrentProgress")
 async def torrent_progress(hash: str):
-    torrent = get_torrent_info(hash)
-    if not torrent:
-        return {"name": "", "completed_mb": 0, "status": "Fetching torrent info…"}
-    return {
-        "name": torrent["name"],
-        "completed_mb": torrent["completed"] / 1024 / 1024,
-        "status": "Downloading — please wait…"
-    }
+    """
+    Reports the REAL safe-streaming buffer for the torrent's video file --
+    i.e. the same contiguous-piece check that gates ffmpeg startup in
+    stream.py's _ensure_hls -- rather than raw torrent-level byte progress.
+ 
+    Raw byte progress (torrent["completed"]) is not a safe signal here: it
+    can advance even while the *front* of the chosen file (the part ffmpeg
+    actually needs to start) is still missing, e.g. because
+    firstLastPiecePrio causes the front and back of MP4 files to download
+    out of order. get_buffer_status uses the piece-level contiguous-prefix
+    check instead, so "ready": true here means it's genuinely safe to call
+    /stream/{hash}/prepare next.
+    """
+    return get_buffer_status(hash)
+ 
+ 
+@app.post("/cancelTorrent")
+async def cancel_torrent(hash: str):
+    """
+    Cancels an in-progress or active stream for a torrent: stops any
+    running ffmpeg/feeder pipeline, then deletes the torrent and its
+    downloaded files from qBittorrent entirely.
+ 
+    Takes `hash` as a query param (POST /cancelTorrent?hash=...), matching
+    the existing /torrentProgress?hash=... convention, rather than adding
+    a new request body model.
+    """
+    if not hash:
+        raise HTTPException(status_code=400, detail="Missing torrent hash")
+ 
+    cancel_stream(hash)
+ 
+    deleted = delete_torrent(hash, delete_files=True)
+    if not deleted:
+        # The HLS pipeline is already torn down regardless -- this only
+        # reflects whether qBittorrent itself was reachable to also remove
+        # the torrent/files. Surface it rather than silently succeeding.
+        raise HTTPException(
+            status_code=502,
+            detail="Stream stopped, but qBittorrent did not confirm torrent deletion",
+        )
+ 
+    return {"success": True}
+
 
 
 @app.delete("/admin/wipe-all")
