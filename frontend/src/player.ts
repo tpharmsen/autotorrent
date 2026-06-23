@@ -5,7 +5,7 @@ import { postInteractTorrent, fetchTorrentProgress, fetchSubtitleTracks, fetchSt
 // in movie.html and tv.html, not as an ES module — so we declare the global here.
 declare const Hls: any;
 
-const MIN_MB = 50;
+const MIN_MB = 20;
 
 let progressInterval: number | undefined;
 let hlsInstance: any | null = null;
@@ -121,16 +121,16 @@ function pollProgress(hash: string): void {
 
 	progressInterval = window.setInterval(async () => {
 		try {
-			const { name, completed_mb, status } = await fetchTorrentProgress(hash);
-			const pct = Math.min(100, Math.round((completed_mb / MIN_MB) * 100));
+			const { name, safe_completed_mb, status } = await fetchTorrentProgress(hash);
+			const pct = Math.min(100, Math.round((safe_completed_mb / MIN_MB) * 100));
 
 			setText("prog-name", name);
 			setWidth("prog-fill", pct);
-			setText("prog-bytes", `${completed_mb.toFixed(1)} MB of ${MIN_MB} MB`);
+			setText("prog-bytes", `${safe_completed_mb.toFixed(1)} MB of ${MIN_MB} MB`);
 			setText("prog-pct", `${pct}%`);
 			setText("prog-status", status || "Downloading — please wait…");
 
-			if (completed_mb >= MIN_MB) {
+			if (safe_completed_mb >= MIN_MB) {
 				if (progressInterval) window.clearInterval(progressInterval);
 				progressInterval = undefined;
 				setText("prog-status", "Starting playback…");
@@ -163,3 +163,4 @@ export async function interactTorrent(torrent: Torrent): Promise<void> {
 export function clearProgressInterval(): void {
 	if (progressInterval) window.clearInterval(progressInterval);
 }
+

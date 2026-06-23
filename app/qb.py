@@ -115,7 +115,7 @@ def _patch_piece_priority(session: requests.Session, torrent_hash: str) -> None:
     if not files:
         return
     has_mp4 = any(f.get("name", "").lower().endswith(".mp4") for f in files)
-    
+
     # Only enable firstLastPiecePrio if it's MP4 with no MKVs
     if has_mp4:
         session.post(
@@ -203,3 +203,64 @@ def get_transfer_info() -> dict:
 
     r = session.get(f"{QB_URL}/api/v2/transfer/info")
     return r.json() if r.status_code == 200 else {}
+
+
+def get_torrent_properties(torrent_hash: str) -> Optional[dict]:
+    """Return generic torrent properties (includes piece_size), or None."""
+    session = get_session()
+    if not session:
+        return None
+
+    r = session.get(
+        f"{QB_URL}/api/v2/torrents/properties",
+        params={"hash": torrent_hash},
+    )
+    return r.json() if r.status_code == 200 else None
+
+
+def get_piece_states(torrent_hash: str) -> Optional[list]:
+    """Return the list of piece states (0=not downloaded, 1=downloading,
+    2=downloaded) in piece order, or None on failure."""
+    session = get_session()
+    if not session:
+        return None
+
+    r = session.get(
+        f"{QB_URL}/api/v2/torrents/pieceStates",
+        params={"hash": torrent_hash},
+    )
+    return r.json() if r.status_code == 200 else None
+
+
+def get_safe_contiguous_bytes(torrent_hash: str, file_entry: dict) -> int:
+    piece_range = file_entry.get("piece_range")
+    file_size = file_entry.get("size", 0)
+
+    if not piece_range or file_size <= 0:
+        return 0
+
+    start_piece, end_piece = piece_range
+
+    props = get_torrent_properties(torrent_hash)
+    if not props:
+        return 0
+    piece_size = props.get("piece_size", 0)
+    if piece_size <= 0:
+        return 0
+
+    states = get_piece_states(torrent_hash)
+    if not states or end_piece >= len(states):
+        return 0
+
+    contiguous_complete_pieces = 0
+    for piece_index in range(start_piece, end_piece + 1):
+        if states[piece_index] == 2:
+            contiguous_complete_pieces += 1
+        else:
+            break
+
+    if contiguous_complete_pieces == 0:
+        return 0
+
+    safe_bytes = contiguous_complete_pieces * piece_size
+    return min(safe_bytes, file_size)

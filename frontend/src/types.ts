@@ -111,8 +111,9 @@ export interface InteractTorrentResponse {
 
 export interface TorrentProgress {
 	name: string;
-	completed_mb: number;
+	safe_completed_mb: number;
 	status: string;
+	ready: boolean;
 }
 
 export interface SubtitleTrack {

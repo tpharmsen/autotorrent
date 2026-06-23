@@ -6,7 +6,7 @@ from typing import Optional
 from qb import get_torrent_info, get_torrent_files
 
 VIDEO_EXTENSIONS = (".mkv", ".mp4")
-MIN_SIZE = 50 * 1024 * 1024
+MIN_SIZE = 20 * 1024 * 1024
 TIMEOUT = 120
 INTERVAL = 0.25
 
