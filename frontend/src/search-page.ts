@@ -1,5 +1,5 @@
-import { SearchResponse } from "./types.js";
 import { renderSearchResults } from "./render.js";
+import { fetchSearchResults } from "./api.js";
 
 /** Extracts the query from a path like /search/inception */
 function getQueryFromPath(): string {
@@ -18,9 +18,7 @@ async function loadSearchResults(): Promise<void> {
 	document.title = `Search: ${query}`;
 
 	try {
-		const res = await fetch(`/api/search/${encodeURIComponent(query)}`);
-		if (!res.ok) throw new Error(`Request failed: ${res.status}`);
-		const data: SearchResponse = await res.json();
+		const data = await fetchSearchResults(query);
 		renderSearchResults(data.movies, 'movie', 'search-results-movie');
 		renderSearchResults(data.tv, 'tv', 'search-results-tv');
 	} catch (err) {

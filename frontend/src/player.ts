@@ -1,22 +1,11 @@
-import {
-	MovieDetail,
-	Torrent,
-	InteractTorrentResponse,
-	TorrentProgress,
-	SubtitleTrack,
-} from "./types.js";
-import { renderMovieDetail, renderTorrentList } from "./render.js";
+import { Torrent } from "./types.js";
+import { postInteractTorrent, fetchTorrentProgress, fetchSubtitleTracks, fetchStreamPrepare } from "./api.js";
 
 // hls.js is loaded globally via <script src="https://cdn.jsdelivr.net/npm/hls.js@.../hls.min.js">
-// in movie.html, not as an ES module — so we declare the global here.
+// in movie.html and tv.html, not as an ES module — so we declare the global here.
 declare const Hls: any;
 
 const MIN_MB = 50;
-
-function getIdFromPath(): string {
-	const parts = window.location.pathname.split("/");
-	return decodeURIComponent(parts[2] ?? "");
-}
 
 let progressInterval: number | undefined;
 let hlsInstance: any | null = null;
@@ -33,8 +22,18 @@ function hideOverlay(): void {
 	getOverlay()?.classList.remove("active");
 }
 
+function setText(id: string, value: string): void {
+	const el = document.getElementById(id);
+	if (el) el.textContent = value;
+}
+
+function setWidth(id: string, pct: number): void {
+	const el = document.getElementById(id) as HTMLElement | null;
+	if (el) el.style.width = `${pct}%`;
+}
+
 /** Stops and tears down any current playback, resetting the player UI. */
-function stopPlayer(): void {
+export function stopPlayer(): void {
 	const video = document.getElementById("video-player") as HTMLVideoElement | null;
 	if (video) {
 		video.pause();
@@ -71,14 +70,14 @@ async function startPlayer(hash: string, name: string): Promise<void> {
 	wrap.classList.add("active");
 	wrap.scrollIntoView({ behavior: "smooth" });
 
-	const res = await fetch(`/stream/${hash}/prepare`);
-	if (!res.ok) {
+	let src: string;
+	try {
+		const data = await fetchStreamPrepare(hash);
+		src = data.playlist; // e.g. "/stream/<hash>/hls/index.m3u8"
+	} catch (err) {
 		window.alert("Failed to prepare HLS stream pipeline.");
 		return;
 	}
-
-	const data: { playlist: string } = await res.json();
-	const src = data.playlist; // e.g. "/stream/<hash>/hls/index.m3u8"
 
 	while (video.firstChild) video.removeChild(video.firstChild);
 
@@ -101,9 +100,7 @@ async function startPlayer(hash: string, name: string): Promise<void> {
 	}
 
 	try {
-		const subRes = await fetch(`/subtitleTracks/${hash}`);
-		const tracks: SubtitleTrack[] = await subRes.json();
-
+		const tracks = await fetchSubtitleTracks(hash);
 		tracks.forEach((track, i) => {
 			const el = document.createElement("track");
 			el.kind = "subtitles";
@@ -124,8 +121,7 @@ function pollProgress(hash: string): void {
 
 	progressInterval = window.setInterval(async () => {
 		try {
-			const res = await fetch(`/torrentProgress?hash=${encodeURIComponent(hash)}`);
-			const { name, completed_mb, status }: TorrentProgress = await res.json();
+			const { name, completed_mb, status } = await fetchTorrentProgress(hash);
 			const pct = Math.min(100, Math.round((completed_mb / MIN_MB) * 100));
 
 			setText("prog-name", name);
@@ -149,31 +145,12 @@ function pollProgress(hash: string): void {
 	}, 1000);
 }
 
-function setText(id: string, value: string): void {
-	const el = document.getElementById(id);
-	if (el) el.textContent = value;
-}
-
-function setWidth(id: string, pct: number): void {
-	const el = document.getElementById(id) as HTMLElement | null;
-	if (el) el.style.width = `${pct}%`;
-}
-
 /** Triggered when a torrent's Stream button is clicked. */
-async function interactTorrent(torrent: Torrent): Promise<void> {
+export async function interactTorrent(torrent: Torrent): Promise<void> {
 	stopPlayer();
 
 	try {
-		const res = await fetch("/interactTorrent", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ link: torrent.magnet }),
-		});
-		if (!res.ok) {
-			const errBody = await res.json().catch(() => ({}));
-			throw new Error(errBody.detail || `Request failed: ${res.status}`);
-		}
-		const data: InteractTorrentResponse = await res.json();
+		const data = await postInteractTorrent(torrent);
 		if (data.hash) pollProgress(data.hash);
 	} catch (err) {
 		console.error("Failed to start torrent:", err);
@@ -181,35 +158,8 @@ async function interactTorrent(torrent: Torrent): Promise<void> {
 	}
 }
 
-async function loadMovie(): Promise<void> {
-	const movieId = getIdFromPath();
-	if (!movieId) return;
-
-	try {
-		const res = await fetch(`/api/movie/${encodeURIComponent(movieId)}`);
-		if (!res.ok) {
-			if (res.status === 404) {
-				const detailEl = document.getElementById("movie-detail");
-				if (detailEl) detailEl.innerHTML = `<p>Movie not found.</p>`;
-				return;
-			}
-			throw new Error(`Request failed: ${res.status}`);
-		}
-		const movie: MovieDetail = await res.json();
-		document.title = movie.title;
-		renderMovieDetail(movie);
-		renderTorrentList(movie.torrents, interactTorrent);
-	} catch (err) {
-		console.error("Failed to load movie:", err);
-		const detailEl = document.getElementById("movie-detail");
-		if (detailEl) detailEl.innerHTML = `<p>Failed to load movie details.</p>`;
-	}
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-	loadMovie();
-});
-
-window.addEventListener("beforeunload", () => {
+/** Clears the progress-polling interval. Call this from a page's
+ * beforeunload handler to avoid leaking the timer. */
+export function clearProgressInterval(): void {
 	if (progressInterval) window.clearInterval(progressInterval);
-});
+}

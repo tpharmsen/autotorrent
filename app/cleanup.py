@@ -31,6 +31,13 @@ def wipe_all_hls():
     """
     Deletes entire HLS cache directory.
     """
+    files_removed = 0
     if os.path.exists(HLS_BASE_DIR):
+        for root, dirs, files in os.walk(HLS_BASE_DIR):
+            for filename in files:
+                filepath = os.path.join(root, filename)
+                os.remove(filepath)
+                files_removed += 1
         shutil.rmtree(HLS_BASE_DIR, ignore_errors=True)
         os.makedirs(HLS_BASE_DIR, exist_ok=True)
+    return files_removed

@@ -1,11 +1,9 @@
-import { PosterResponse, WipeResponse } from "./types.js";
 import { renderPosterGrid } from "./render.js";
+import { fetchPosters, postWipeHls, postWipeAll } from "./api.js";
 
 async function loadPosters(): Promise<void> {
 	try {
-		const res = await fetch("/api/posters");
-		if (!res.ok) throw new Error(`Request failed: ${res.status}`);
-		const data: PosterResponse = await res.json();
+		const data = await fetchPosters();
 		renderPosterGrid(data.movies, "movie", "movie-grid");
 		renderPosterGrid(data.tv, "tv", "tv-grid");
 	} catch (err) {
@@ -20,7 +18,6 @@ function showGridError(containerId: string): void {
 	if (!container) return;
 	container.innerHTML = `<p class="error">Failed to load posters.</p>`;
 }
-
 
 function initSearch(): void {
 	const input = document.getElementById("movie-search") as HTMLInputElement | null;
@@ -39,30 +36,48 @@ function initSearch(): void {
 	});
 }
 
-function initWipe(): void {
-	const button = document.getElementById("wipe-btn");
+function hlsWipe(): void {
+	const button = document.getElementById("hls-wipe-btn");
 	if (!button) return;
 
 	button.addEventListener("click", async () => {
 		const confirmed = window.confirm(
-			"This will delete ALL torrents + files + streams. Continue?"
+			"This will delete all HLS files. Continue?"
 		);
 		if (!confirmed) return;
 
 		try {
-			const res = await fetch("/admin/wipe-all?delete_files=true", {
-				method: "DELETE",
-			});
-			if (!res.ok) {
-				const errBody = await res.json().catch(() => ({}));
-				throw new Error(errBody.detail || `Request failed: ${res.status}`);
-			}
-			const data: WipeResponse = await res.json();
+			const data = await postWipeHls();
 			if (data.status === "error") {
 				window.alert(`Wipe failed: ${data.detail ?? "unknown error"}`);
 				return;
 			}
-			window.alert(`Wipe complete\nTorrents removed: ${data.torrents_removed}`);
+			window.alert(`Wipe complete\nHLS files removed: ${data.files_removed}`);
+			window.location.reload();
+		} catch (err) {
+			console.error("Wipe failed:", err);
+			window.alert("Wipe failed — check console for details.");
+		}
+	});
+}
+
+function totalWipe(): void {
+	const button = document.getElementById("total-wipe-btn");
+	if (!button) return;
+
+	button.addEventListener("click", async () => {
+		const confirmed = window.confirm(
+			"This will delete all torrents + files + streams. Continue?"
+		);
+		if (!confirmed) return;
+
+		try {
+			const data = await postWipeAll(true);
+			if (data.status === "error") {
+				window.alert(`Wipe failed: ${data.detail ?? "unknown error"}`);
+				return;
+			}
+			window.alert(`Wipe complete\nFiles removed: ${data.files_removed}`);
 			window.location.reload();
 		} catch (err) {
 			console.error("Wipe failed:", err);
@@ -73,6 +88,7 @@ function initWipe(): void {
 
 document.addEventListener("DOMContentLoaded", () => {
 	initSearch();
-	initWipe();
+	hlsWipe();
+    totalWipe();
 	loadPosters();
 });

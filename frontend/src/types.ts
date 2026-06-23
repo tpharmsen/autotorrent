@@ -16,7 +16,7 @@ export interface PosterResponse {
 
 export interface WipeResponse {
 	status: boolean | string;
-	torrents_removed: number;
+	files_removed: number;
 	files_deleted: boolean;
 	detail?: string;
 }
@@ -75,6 +75,33 @@ export interface MovieDetail {
 	credits?: Credits;
 	videos?: Videos;
 	torrents: Torrent[];
+}
+
+export interface TvDetail {
+	id: number;
+	name: string;
+	overview?: string;
+	number_of_seasons?: number;
+	number_of_episodes?: number;
+	first_air_date?: string;
+	last_air_date?: string;
+	episode_structure?: Record<number, number>;
+	poster_path?: string | null;
+	vote_average?: number;
+	runtime?: number;
+	credits?: Credits;
+	videos?: Videos;
+}
+
+export interface EpisodeDetail {
+	id: number;
+	name: string;
+	vote_average?: number;
+	air_date?: string;
+	torrents: Torrent[];
+	overview?: string;
+	episode_number?: number;
+	season_number?: number;
 }
 
 export interface InteractTorrentResponse {

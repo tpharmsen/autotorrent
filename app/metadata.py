@@ -69,6 +69,15 @@ def get_tv_detail(tv_id: int) -> dict:
     response.raise_for_status()
     return response.json()
 
+def get_episode_detail(tv_id: int, season_number: int, episode_number: int) -> dict:
+    response = requests.get(
+        f"{BASE_URL}/tv/{tv_id}/season/{season_number}/episode/{episode_number}",
+        headers=HEADERS,
+        params={"language": "en-US"}
+    )
+    response.raise_for_status()
+    return response.json()
+
 
 def get_trending_movies(page: int = 1) -> list:
     response = requests.get(
@@ -134,6 +143,20 @@ def get_trending_posters_tv():
             "poster_url": "https://image.tmdb.org/t/p/w500" + poster_path,
         })
     return results
+
+def get_episode_structure(tv_detail: dict) -> dict:
+    """Return a dict mapping season numbers to lists of episode numbers."""
+    episode_structure = {}
+    seasons = tv_detail.get("seasons", [])
+    for season in seasons:
+        if "season" not in season.get("name", "").lower():
+            continue  # Skip special seasons like "Specials"
+        season_number = season.get("season_number")
+        if season_number is not None:
+            # Fetch the season details to get the episodes
+            episode_structure[season_number] = season.get("episode_count", 0)
+    print(f"Episode structure for TV show '{tv_detail.get('name', 'Unknown')}': {episode_structure}")
+    return episode_structure
 
 if __name__ == "__main__":
     trending_movies = get_trending_posters_movies()

@@ -1,28 +1,31 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8">
-  <title>Search Movies</title>
-  <link rel="stylesheet" href="/styles/styles.css">
+	<meta charset="UTF-8">
+	<title>Search Movies</title>
+	<link rel="stylesheet" href="/styles/styles.css">
 </head>
+
 <body>
-  <a class="back" href="/">&larr; Back</a>
-  <h1>🎬 Search Movies</h1>
+	<a class="back" href="/">&larr; Back</a>
+	<h1>🎬 Search Movies</h1>
 
-  <div class="search-container">
-    <input type="text" id="movie-search" placeholder="Search for a movie...">
-    <button id="search-btn">Search</button>
-  </div>
-  <h2>Movie Results</h2>
-  <div class="list" id="search-results-movie">
-    <!-- populated by search.ts on load, based on URL path -->
-  </div>
-  <h2>TV Results</h2>
-  <div class="list" id="search-results-tv">
-    <!-- populated by search.ts on load, based on URL path -->
-  </div>
-  
+	<div class="search-container">
+		<input type="text" id="movie-search" placeholder="Search for a movie...">
+		<button id="search-btn">Search</button>
+	</div>
+	<h2>Movie Results</h2>
+	<div class="list" id="search-results-movie">
+		<!-- populated by search.ts on load, based on URL path -->
+	</div>
+	<h2>TV Results</h2>
+	<div class="list" id="search-results-tv">
+		<!-- populated by search.ts on load, based on URL path -->
+	</div>
 
-  <script type="module" src="/static/search.js"></script>
+
+	<script type="module" src="/static/search-page.js"></script>
 </body>
+
 </html>
