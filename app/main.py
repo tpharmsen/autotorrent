@@ -72,6 +72,7 @@ async def search_page(query: str):
 async def movie_page(id: str):
     return FileResponse(os.path.join(PAGES_DIR, "movie.html"))
 
+
 @app.get("/tv/{id}")
 async def tv_page(id: str):
     return FileResponse(os.path.join(PAGES_DIR, "tv.html"))
@@ -91,15 +92,6 @@ async def api_posters():
         "tv": get_tv_posters()
     }
 
-@app.get("/api/refresh")
-async def api_refresh():
-    print(f"[api_refresh] Refreshing poster cache")
-    # Triggers a poster-cache refresh from trending movies, same as the
-    # old index() route did, but doesn't return any data since the client
-    # will fetch the updated poster list via /api/posters immediately after.
-    download_posters(get_trending_movies())
-    download_posters(get_trending_tv())
-    return {"success": True}
 
 
 @app.get("/api/search/{query}")
@@ -114,6 +106,7 @@ async def api_search(query: str):
 
 @app.get("/api/movie/{id}")
 async def api_movie_detail(id: str):
+    #print(f"[api_movie_detail] Fetching movie details for ID: {id}")
     #movie = search_movie_by_id(id)
     #if not movie:
     #    raise HTTPException(status_code=404, detail="Movie not found on TMDB")
@@ -121,6 +114,26 @@ async def api_movie_detail(id: str):
     detail = get_movie_detail(id)
     downloadable_torrents = get_downloadable_torrents(detail["title"])
     detail["torrents"] = downloadable_torrents
+    return detail
+
+@app.get("/api/tv/{id}")
+async def api_tv_detail(id: str):
+    #tv = search_tv_by_id(id)
+    #if not tv:
+    #    raise HTTPException(status_code=404, detail="TV show not found on TMDB")
+    #
+    detail = get_tv_detail(id)
+    #downloadable_torrents = get_downloadable_torrents(detail["name"])
+    detail["episode_structure"] = get_episode_structure(detail)
+    return detail
+
+@app.get("/api/tv/{id}/{season}/{episode}")
+async def api_episode_detail(id: str, season: int, episode: int):
+    #print(f"[api_episode_detail] Fetching episode details for TV ID: {id}, Season: {season}, Episode: {episode}")
+    # Implementation for fetching episode details
+    detail = get_episode_detail(id, season, episode)
+    torrent_search_query = f"{detail['name']} S{season:02d}E{episode:02d}"
+    detail["torrents"] = get_downloadable_torrents(torrent_search_query)
     return detail
 
 
@@ -210,14 +223,34 @@ async def wipe_all(delete_files: bool = True):
 
         return {
             "status": success,
-            "torrents_removed": torrent_count,
+            "files_removed": torrent_count,
             "files_deleted": delete_files
         }
 
     except Exception as e:
         return {
             "status": "error",
-            "torrents_removed": 0,
+            "files_removed": 0,
+            "files_deleted": False,
+            "detail": str(e)
+        }
+    
+@app.delete("/admin/wipe-hls")
+async def wipe_hls():
+    """
+    Wipe all HLS cache files.
+    """
+    try:
+        hls_files_removed = wipe_all_hls()
+        print(f"[cleanup] Wiped HLS cache")
+        return {
+            "status": "success",
+            "files_removed": hls_files_removed
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "files_removed": 0,
             "files_deleted": False,
             "detail": str(e)
         }
@@ -238,4 +271,6 @@ if __name__ == "__main__":
         app,
         host=ts_ip,
         port=5000,
+        ssl_certfile="/home/tpharmsen/Documents/autotorrent/tpharmsen-b550aoruselite.tail072acb.ts.net.crt",
+        ssl_keyfile="/home/tpharmsen/Documents/autotorrent/tpharmsen-b550aoruselite.tail072acb.ts.net.key",
     )

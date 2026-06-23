@@ -9,6 +9,12 @@ react?
 toggle first last prio working??
 larger mp4 not working -> toggle first last prio not active?
 
+sudo tailscale cert your-machine-name.your-tailnet.ts.net
 sudo tailscale up
 source /home/tpharmsen/Documents/autotorrent/venv/bin/activate
 npx tsc && python3 app/main.py
+
+sudo chown tpharmsen:tpharmsen /home/tpharmsen/Documents/autotorrent/tpharmsen-b550aoruselite.tail072acb.ts.net.key
+chmod 600 /home/tpharmsen/Documents/autotorrent/tpharmsen-b550aoruselite.tail072acb.ts.net.key
+sudo chown tpharmsen:tpharmsen /home/tpharmsen/Documents/autotorrent/tpharmsen-b550aoruselite.tail072acb.ts.net.crt
+chmod 644 /home/tpharmsen/Documents/autotorrent/tpharmsen-b550aoruselite.tail072acb.ts.net.crt

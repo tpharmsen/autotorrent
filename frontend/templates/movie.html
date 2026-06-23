@@ -15,12 +15,7 @@
 		<!-- populated by movie.ts: hero (poster, title, meta, overview, cast) + trailer -->
 	</div>
 
-	<h2>Torrents</h2>
-	<div id="torrent-list">
-		<!-- populated by movie.ts: torrent table with Stream buttons -->
-	</div>
-
-	<!-- Progress overlay, shown while a torrent buffers -->
+	!-- Progress overlay, shown while a torrent buffers -->
 	<div class="progress-overlay" id="overlay">
 		<div class="progress-card">
 			<p class="progress-title">Buffering torrent</p>
@@ -43,7 +38,12 @@
 		<p class="subtitle-info" id="subtitle-info"></p>
 	</div>
 
-	<script type="module" src="/static/movie.js"></script>
+	<h2>Torrents</h2>
+	<div id="torrent-list">
+		<!-- populated by movie.ts: torrent table with Stream buttons -->
+	</div>
+
+	<script type="module" src="/static/movie-page.js"></script>
 </body>
 
 </html>

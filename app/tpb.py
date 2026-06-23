@@ -6,7 +6,8 @@ from vars import PIRATE_URL
 QUALITY_REGEX = r"(2160p|1080p|720p|480p)"
 SE_REGEX = r"S(\d{1,2})E(\d{1,2})"
 
-JUNK = [
+JUNK = []
+JUNK_OLD = [
     "WEBRip", "WEB-DL", "WEB", "AMZN", "HDRip", "BluRay", "BRRip",
     "x264", "x265", "HEVC", "10Bit", "DDP5", "DDP5.1", "AAC",
     "Atmos", "H264", "H.264", "FLUX", "ETHEL", "MeGusta",
