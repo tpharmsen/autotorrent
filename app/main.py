@@ -305,6 +305,15 @@ if __name__ == "__main__":
         app,
         host=ts_ip,
         port=5000,
+<<<<<<< HEAD
         ssl_certfile="/home/tpharmsen/Documents/autotorrent/tpharmsen-b550aoruselite.tail072acb.ts.net.crt",
         ssl_keyfile="/home/tpharmsen/Documents/autotorrent/tpharmsen-b550aoruselite.tail072acb.ts.net.key",
+=======
+
+        ssl_certfile="/home/tpharmsen/Documents/autotorrent/tpharmsen-hp-zbook-studio-g4.tail072acb.ts.net.crt",
+        ssl_keyfile="/home/tpharmsen/Documents/autotorrent/tpharmsen-hp-zbook-studio-g4.tail072acb.ts.net.key",
+        #ssl_certfile="/home/tpharmsen/Documents/autotorrent/tpharmsen-b550aoruselite.tail072acb.ts.net.crt",
+        #ssl_keyfile="/home/tpharmsen/Documents/autotorrent/tpharmsen-b550aoruselite.tail072acb.ts.net.key",
+    
+>>>>>>> 9b4a1864e1a712f5f5bde8343f06315898990c8b
     )

@@ -246,6 +246,36 @@ def _ensure_hls(torrent_hash: str, file_path: str, file_entry: dict) -> str:
             "-i", fifo_path,
             "-map", "0:v:0",
             "-map", "0:a:0?",
+<<<<<<< HEAD
+=======
+            "-c:v", "h264_nvenc",          # Changed: Swapped CPU encoder for NVIDIA NVENC GPU encoder
+            "-preset", "p2",               # Changed: NVENC specific speed preset (p1=fastest, p7=slowest)
+            "-rc", "vbr",                  # Changed: Sets rate control to Variable Bitrate
+            "-cq", "21",                   # Changed: Replaced -crf with NVENC's Constant Quality
+            "-pix_fmt", "yuv420p",
+            "-c:a", "aac",
+            "-b:a", "128k",
+            "-ac", "2",
+            "-f", "hls",
+            "-hls_time", "4",
+            "-hls_playlist_type", "event",
+            "-hls_flags", "delete_segments+append_list",
+            "-hls_segment_filename", os.path.join(output_dir, "seg_%04d.ts"),
+            "-hls_segment_type", segment_type,
+            playlist_path,
+        ]
+        """
+        cmd = [
+            "ffmpeg",
+            "-loglevel", "error",
+            "-fflags", "+genpts+discardcorrupt+igndts",
+            "-err_detect", "ignore_err",
+            "-analyzeduration", "100M",
+            "-probesize", "100M",
+            "-i", fifo_path,
+            "-map", "0:v:0",
+            "-map", "0:a:0?",
+>>>>>>> 9b4a1864e1a712f5f5bde8343f06315898990c8b
             "-c:v", "libx264",
             "-preset", "veryfast",
             "-crf", "21",
@@ -261,6 +291,10 @@ def _ensure_hls(torrent_hash: str, file_path: str, file_entry: dict) -> str:
             "-hls_segment_type", segment_type,
             playlist_path,
         ]
+<<<<<<< HEAD
+=======
+        """
+>>>>>>> 9b4a1864e1a712f5f5bde8343f06315898990c8b
 
         print(f"[stream] Starting HLS encoding pipeline for hash: {torrent_hash}")
 
