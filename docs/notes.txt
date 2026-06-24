@@ -18,3 +18,8 @@ sudo chown tpharmsen:tpharmsen /home/tpharmsen/Documents/autotorrent/tpharmsen-b
 chmod 600 /home/tpharmsen/Documents/autotorrent/tpharmsen-b550aoruselite.tail072acb.ts.net.key
 sudo chown tpharmsen:tpharmsen /home/tpharmsen/Documents/autotorrent/tpharmsen-b550aoruselite.tail072acb.ts.net.crt
 chmod 644 /home/tpharmsen/Documents/autotorrent/tpharmsen-b550aoruselite.tail072acb.ts.net.crt
+
+sudo chown tpharmsen:tpharmsen /home/tpharmsen/Documents/autotorrent/tpharmsen-hp-zbook-studio-g4.tail072acb.ts.net.key
+chmod 600 /home/tpharmsen/Documents/autotorrent/tpharmsen-hp-zbook-studio-g4.tail072acb.ts.net.key
+sudo chown tpharmsen:tpharmsen /home/tpharmsen/Documents/autotorrent/tpharmsen-hp-zbook-studio-g4.tail072acb.ts.net.crt
+chmod 644 /home/tpharmsen/Documents/autotorrent/tpharmsen-hp-zbook-studio-g4.tail072acb.ts.net.crt
