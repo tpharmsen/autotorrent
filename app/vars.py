@@ -4,7 +4,7 @@ import os
 load_dotenv()
 
 HLS_BASE_DIR = "/home/tpharmsen/Documents/autotorrent/temp/hls_streams/"
-PIRATE_URL = "https://thepibay.site/top/200"
+PIRATE_URL = "https://thepibay.online/search/"
 MOVIE_URL = "https://api.themoviedb.org/3"
 
 QB_URL = "http://localhost:8080"

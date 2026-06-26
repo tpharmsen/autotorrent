@@ -254,8 +254,11 @@ def get_safe_contiguous_bytes(torrent_hash: str, file_entry: dict) -> int:
 
     contiguous_complete_pieces = 0
     for piece_index in range(start_piece, end_piece + 1):
+        #print(f"[get_safe_contiguous_bytes] piece_index: {piece_index}, state: {states[piece_index]}")
         if states[piece_index] == 2:
             contiguous_complete_pieces += 1
+        #elif states[piece_index] == 1:
+        #    contiguous_complete_pieces += 0.5
         else:
             break
 

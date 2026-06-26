@@ -131,8 +131,11 @@ async def api_tv_detail(id: str):
 async def api_episode_detail(id: str, season: int, episode: int):
     #print(f"[api_episode_detail] Fetching episode details for TV ID: {id}, Season: {season}, Episode: {episode}")
     # Implementation for fetching episode details
+    tv_series_name = get_tv_detail(id)['name']
+    #print(f"[api_episode_detail] TV Series Name: {tv_series_name}")
     detail = get_episode_detail(id, season, episode)
-    torrent_search_query = f"{detail['name']} S{season:02d}E{episode:02d}"
+    print(f"[api_episode_detail] Episode details: {detail}")
+    torrent_search_query = f"{tv_series_name} S{season:02d}E{episode:02d}"
     detail["torrents"] = get_downloadable_torrents(torrent_search_query)
     return detail
 
@@ -305,15 +308,10 @@ if __name__ == "__main__":
         app,
         host=ts_ip,
         port=5000,
-<<<<<<< HEAD
+
+        #ssl_certfile="/home/tpharmsen/Documents/autotorrent/tpharmsen-hp-zbook-studio-g4.tail072acb.ts.net.crt",
+        #ssl_keyfile="/home/tpharmsen/Documents/autotorrent/tpharmsen-hp-zbook-studio-g4.tail072acb.ts.net.key",
         ssl_certfile="/home/tpharmsen/Documents/autotorrent/tpharmsen-b550aoruselite.tail072acb.ts.net.crt",
         ssl_keyfile="/home/tpharmsen/Documents/autotorrent/tpharmsen-b550aoruselite.tail072acb.ts.net.key",
-=======
-
-        ssl_certfile="/home/tpharmsen/Documents/autotorrent/tpharmsen-hp-zbook-studio-g4.tail072acb.ts.net.crt",
-        ssl_keyfile="/home/tpharmsen/Documents/autotorrent/tpharmsen-hp-zbook-studio-g4.tail072acb.ts.net.key",
-        #ssl_certfile="/home/tpharmsen/Documents/autotorrent/tpharmsen-b550aoruselite.tail072acb.ts.net.crt",
-        #ssl_keyfile="/home/tpharmsen/Documents/autotorrent/tpharmsen-b550aoruselite.tail072acb.ts.net.key",
     
->>>>>>> 9b4a1864e1a712f5f5bde8343f06315898990c8b
     )

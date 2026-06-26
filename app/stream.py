@@ -246,8 +246,6 @@ def _ensure_hls(torrent_hash: str, file_path: str, file_entry: dict) -> str:
             "-i", fifo_path,
             "-map", "0:v:0",
             "-map", "0:a:0?",
-<<<<<<< HEAD
-=======
             "-c:v", "h264_nvenc",          # Changed: Swapped CPU encoder for NVIDIA NVENC GPU encoder
             "-preset", "p2",               # Changed: NVENC specific speed preset (p1=fastest, p7=slowest)
             "-rc", "vbr",                  # Changed: Sets rate control to Variable Bitrate
@@ -275,7 +273,6 @@ def _ensure_hls(torrent_hash: str, file_path: str, file_entry: dict) -> str:
             "-i", fifo_path,
             "-map", "0:v:0",
             "-map", "0:a:0?",
->>>>>>> 9b4a1864e1a712f5f5bde8343f06315898990c8b
             "-c:v", "libx264",
             "-preset", "veryfast",
             "-crf", "21",
@@ -291,10 +288,7 @@ def _ensure_hls(torrent_hash: str, file_path: str, file_entry: dict) -> str:
             "-hls_segment_type", segment_type,
             playlist_path,
         ]
-<<<<<<< HEAD
-=======
         """
->>>>>>> 9b4a1864e1a712f5f5bde8343f06315898990c8b
 
         print(f"[stream] Starting HLS encoding pipeline for hash: {torrent_hash}")
 

@@ -83,8 +83,9 @@ def parse_release(title: str):
     }
 
 def get_downloadable_torrents(title: str):
-    base_url = "https://thepibay.site/search/"
+    base_url = PIRATE_URL
     search_url = base_url + title.replace(" ", "%20")
+    #print(f"Searching for torrents: {search_url}")
     headers = {"User-Agent": "Mozilla/5.0"}
     response = requests.get(search_url, headers=headers)
     soup = BeautifulSoup(response.text, "html.parser")
