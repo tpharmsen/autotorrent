@@ -5,6 +5,8 @@ searching
 tv series
 ?
 
+currently disabled self signed ssl https certificate due to favicon stuff
+
 react?
 toggle first last prio working??
 larger mp4 not working -> toggle first last prio not active?
