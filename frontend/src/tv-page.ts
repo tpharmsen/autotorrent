@@ -41,7 +41,6 @@ function renderTvDetail(tv: TvDetail): void {
     </div>
   `;
 }
-
 const seasonSelect = document.getElementById(
 	"season-select"
 ) as HTMLSelectElement;
@@ -50,26 +49,35 @@ const episodeSelect = document.getElementById(
 	"episode-select"
 ) as HTMLSelectElement;
 
+// Reference the new submit button
+const submitBtn = document.getElementById(
+	"submit-request-btn"
+) as HTMLButtonElement;
+
 let currentEpisodeStructure: Record<number, number> = {};
 
 function populateSeasons(episode_structure: Record<number, number>) {
-	seasonSelect.innerHTML = "";
+	// Clear and add the default option
+	seasonSelect.innerHTML = '<option value="" disabled selected>Select Season</option>';
 
 	Object.keys(episode_structure)
-		.map(Number)
-		.sort((a, b) => a - b)
-		.forEach((season) => {
-			const option = document.createElement("option");
-			option.value = season.toString();
-			option.textContent = `Season ${season}`;
-			seasonSelect.appendChild(option);
-		});
+	.map(Number)
+	.sort((a, b) => a - b)
+	.forEach((season) => {
+		const option = document.createElement("option");
+		option.value = season.toString();
+		option.textContent = `Season ${season}`;
+		seasonSelect.appendChild(option);
+	});
 }
 
 function populateEpisodes(episode_structure: Record<number, number>, season: number) {
-	episodeSelect.innerHTML = "";
+	// Clear and add the default option
+	episodeSelect.innerHTML = '<option value="" disabled selected>Select Episode</option>';
 
 	const episodeCount = episode_structure[season];
+	if (!episodeCount) return;
+
 	for (let i = 1; i <= episodeCount; i++) {
 		const option = document.createElement("option");
 		option.value = i.toString();
@@ -93,11 +101,8 @@ function renderSeasonSelect(episode_structure: Record<number, number>) {
 
 	populateSeasons(episode_structure);
 
-	const firstSeason = Number(Object.keys(episode_structure)[0]);
-
-	seasonSelect.value = firstSeason.toString();
-
-	populateEpisodes(episode_structure, firstSeason);
+	// Reset the episode selector to its default placeholder state
+	episodeSelect.innerHTML = '<option value="" disabled selected>Select Episode</option>';
 
 	clearEpisodeAndTorrents();
 }
@@ -157,20 +162,32 @@ async function loadEpisode(season: number, episode: number): Promise<void> {
 		if (detailEl) detailEl.innerHTML = `<p>Failed to load episode details.</p>`;
 	}
 }
-
 document.addEventListener("DOMContentLoaded", () => {
 	loadTv();
 });
 
+// When season changes, populate the episodes and reset selections
 seasonSelect.addEventListener("change", () => {
 	const season = Number(seasonSelect.value);
-	populateEpisodes(currentEpisodeStructure, season);
+	if (!isNaN(season)) {
+		populateEpisodes(currentEpisodeStructure, season);
+	}
 	clearEpisodeAndTorrents();
 });
 
-episodeSelect.addEventListener("change", () => {
-	const season = Number(seasonSelect.value);
-	const episode = Number(episodeSelect.value);
+// Handle the manual form submission instead of loading automatically on change
+submitBtn.addEventListener("click", () => {
+	const seasonVal = seasonSelect.value;
+	const episodeVal = episodeSelect.value;
+
+	// Check if valid options are selected
+	if (!seasonVal || !episodeVal) {
+		alert("Please select both a Season and an Episode.");
+		return;
+	}
+
+	const season = Number(seasonVal);
+	const episode = Number(episodeVal);
 
 	loadEpisode(season, episode);
 });
