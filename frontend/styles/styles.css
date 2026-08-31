@@ -172,13 +172,6 @@ a {
 /* ────────────────────────────────────────────────────────────
    Wipe button
    ──────────────────────────────────────────────────────────── */
-
-.wipe-container {
-  position: fixed;
-  top: 16px;
-  right: 16px;
-  z-index: 10;
-}
  
 .wipe-container {
   position: fixed;
@@ -219,6 +212,34 @@ a {
   border-color: #e8807f;
 }
 
+.project-container {
+  position:fixed;
+  top: 16px;
+  left: 16px;
+  z-index: 10;
+  display: flex;
+  gap: 8px;
+}
+
+.project-container button {
+  background: transparent;
+  color: #8786e0;
+  border: 1px solid #8786e0;
+  padding: 10px 16px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+  font-family: var(--font-body);
+  transition: background 0.15s var(--ease), border-color 0.15s var(--ease), transform 0.1s var(--ease);
+}
+.project-container button:hover {
+  background: rgba(224, 98, 107, 0.12);
+  border-color: #b5b4e8;
+}
+.project-container button:active {
+  transform: scale(0.90);
+}
 
 /* ────────────────────────────────────────────────────────────
    Poster grid — homepage

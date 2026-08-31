@@ -77,6 +77,10 @@ async def movie_page(id: str):
 async def tv_page(id: str):
     return FileResponse(os.path.join(PAGES_DIR, "tv.html"))
 
+@app.get("/project")
+async def project_page():
+    return FileResponse(os.path.join(PAGES_DIR, "project.html"))
+
 
 # ─────────────────────────────────────────────────────────────
 # JSON API — all data the TS fetches on each page

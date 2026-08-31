@@ -3,9 +3,11 @@ import { fetchPosters, postWipeHls, postWipeAll } from "./api.js";
 
 async function loadPosters(): Promise<void> {
 	try {
+		
 		const data = await fetchPosters();
 		renderPosterGrid(data.movies, "movie", "movie-grid");
 		renderPosterGrid(data.tv, "tv", "tv-grid");
+		console.log("just testing.")
 	} catch (err) {
 		console.error("Failed to load posters:", err);
 		showGridError("movie-grid");
@@ -86,9 +88,25 @@ function totalWipe(): void {
 	});
 }
 
+function goToProject(): void {
+	const button = document.getElementById("project-home-btn");
+	if (!button) return;
+
+	button.addEventListener("click", async () => {
+		try {
+			console.log("gotoproject complete");
+			window.location.href = `/project`;
+		} catch(err) {
+			window.alert("Failed to request project");
+			console.error("failed to go to project");
+		}
+	});
+}
+
 document.addEventListener("DOMContentLoaded", () => {
 	initSearch();
 	hlsWipe();
     totalWipe();
 	loadPosters();
+	goToProject();
 });
