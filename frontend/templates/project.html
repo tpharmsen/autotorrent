@@ -3,13 +3,22 @@
 
 <head>
 	<meta charset="UTF-8">
-	<title>Steaady State Stuff Project</title>
+	<title>Project Assistant</title>
 	<link rel="stylesheet" href="/styles/styles.css">
 </head>
 
 <body>
 	<a class="back" href="/">&larr; Back</a>
-	<h1>Ignition Computing Page</h1>
+	<h1>Project Assistant</h1>
+
+	<section class="chatbot" aria-labelledby="chatbot-title">
+		<h2 id="chatbot-title">Local Assistant</h2>
+		<p class="chatbot-note">The assistant works in /home/tpharmsen/Documents/flowbench-cnn and asks for command confirmation in the conversation.</p>
+		<div id="chat-messages" class="chat-messages" aria-live="polite"></div>
+		<label>Access token <input id="chat-token" type="password" autocomplete="off"></label>
+		<label>Message <textarea id="chat-message" rows="3" placeholder="Ask about the workspace..."></textarea></label>
+		<button id="chat-send" type="button">Send</button>
+	</section>
 
     <div style="display: flex; justify-content: center; align-items: center;">
 		<img

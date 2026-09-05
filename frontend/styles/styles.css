@@ -241,6 +241,91 @@ a {
   transform: scale(0.90);
 }
 
+.chatbot {
+  max-width: 900px;
+  margin: 0 auto 36px;
+  padding: 22px;
+  background: var(--surface);
+  border: 1px solid var(--surface-line);
+  border-radius: var(--radius-lg);
+}
+
+.chatbot h2 {
+  margin: 0 0 8px;
+  max-width: none;
+}
+
+.chatbot-note {
+  color: var(--text-dim);
+  font-size: 14px;
+}
+
+.chat-messages {
+  min-height: 120px;
+  max-height: 420px;
+  overflow-y: auto;
+  margin: 18px 0;
+  padding: 12px;
+  background: var(--bg-deep);
+  border-radius: var(--radius-md);
+}
+
+.chat-message {
+  white-space: pre-wrap;
+  padding: 10px 12px;
+  margin: 8px 0;
+  border-radius: var(--radius-sm);
+}
+
+.chat-message.user { background: rgba(135, 134, 224, 0.18); }
+.chat-message.assistant { background: rgba(95, 184, 122, 0.14); }
+.chat-message.error { background: rgba(224, 98, 107, 0.18); color: var(--leech); }
+
+.chatbot label {
+  display: block;
+  color: var(--text-dim);
+  font-size: 13px;
+  margin: 10px 0;
+}
+
+.chatbot input, .chatbot textarea {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 10px;
+  border: 1px solid var(--surface-line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  color: var(--text);
+  font: inherit;
+}
+
+.chatbot .chat-confirm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chatbot .chat-confirm input {
+  width: auto;
+  margin: 0;
+}
+
+.chatbot button {
+  padding: 10px 18px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.chatbot button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
 /* ────────────────────────────────────────────────────────────
    Poster grid — homepage
    ──────────────────────────────────────────────────────────── */

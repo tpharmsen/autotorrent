@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, Header
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 import os
@@ -10,6 +10,7 @@ from tpb import *
 from vlc import *
 from stream import *  # Contains get_stream_response, start_transcode_response, get_hls_segment
 from cleanup import *
+from chatbot import ChatbotRequest, process_chat, require_chatbot_token
 import threading
 import subprocess
 import uvicorn
@@ -80,6 +81,15 @@ async def tv_page(id: str):
 @app.get("/project")
 async def project_page():
     return FileResponse(os.path.join(PAGES_DIR, "project.html"))
+
+
+@app.post("/api/chatbot")
+async def chatbot(
+    req: ChatbotRequest,
+    x_chatbot_token: str | None = Header(default=None),
+):
+    require_chatbot_token(x_chatbot_token)
+    return {"answer": process_chat(x_chatbot_token, req.message)}
 
 
 # ─────────────────────────────────────────────────────────────
