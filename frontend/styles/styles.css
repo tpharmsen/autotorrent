@@ -242,7 +242,7 @@ a {
 }
 
 .chatbot {
-  max-width: 900px;
+  max-width: 1200px;
   margin: 0 auto 36px;
   padding: 22px;
   background: var(--surface);
@@ -261,7 +261,7 @@ a {
 }
 
 .chat-messages {
-  min-height: 120px;
+  min-height: 240px;
   max-height: 420px;
   overflow-y: auto;
   margin: 18px 0;
@@ -278,7 +278,13 @@ a {
 }
 
 .chat-message.user { background: rgba(135, 134, 224, 0.18); }
-.chat-message.assistant { background: rgba(95, 184, 122, 0.14); }
+.chat-message.assistant {
+  width: fit-content;
+  max-width: 85%;
+  margin-left: auto;
+  text-align: right;
+  background: rgba(95, 184, 122, 0.14);
+}
 .chat-message.error { background: rgba(224, 98, 107, 0.18); color: var(--leech); }
 
 .chatbot label {
@@ -311,6 +317,18 @@ a {
   margin: 0;
 }
 
+.chat-compose {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.chat-compose textarea {
+  flex: 1;
+  width: auto;
+  margin: 0;
+}
+
 .chatbot button {
   padding: 10px 18px;
   border: 0;
@@ -324,6 +342,44 @@ a {
 .chatbot button:disabled {
   opacity: 0.5;
   cursor: wait;
+}
+
+.chat-reset {
+  margin-top: 10px;
+  background: var(--surface-line) !important;
+  color: var(--text) !important;
+}
+
+.project-figures {
+  max-width: 1200px;
+  margin: 0 auto 36px;
+}
+
+.project-figures h2 {
+  max-width: none;
+}
+
+.project-figures figure {
+  max-width: 1200px;
+  margin: 0;
+  padding: 12px;
+  background: var(--surface);
+  border: 1px solid var(--surface-line);
+  border-radius: var(--radius-md);
+}
+
+.project-figures img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius-sm);
+}
+
+.project-figures figcaption {
+  margin-top: 8px;
+  color: var(--text-dim);
+  font-size: 13px;
+  overflow-wrap: anywhere;
 }
 
 /* ────────────────────────────────────────────────────────────

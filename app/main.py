@@ -10,7 +10,7 @@ from tpb import *
 from vlc import *
 from stream import *  # Contains get_stream_response, start_transcode_response, get_hls_segment
 from cleanup import *
-from chatbot import ChatbotRequest, process_chat, require_chatbot_token
+from chatbot import WORKSPACE, ChatbotRequest, process_chat, require_chatbot_token, reset_chat
 import threading
 import subprocess
 import uvicorn
@@ -23,11 +23,17 @@ POSTER_DIR = os.path.join(BASE_DIR, "../temp/posters/")
 PAGES_DIR = os.path.join(BASE_DIR, "../frontend/templates/") 
 STATIC_DIR = os.path.join(BASE_DIR, "../frontend/dist/")
 STYLES_DIR = os.path.join(BASE_DIR, "../frontend/styles/")
+PROJECT_ASSETS_DIR = os.path.join(BASE_DIR, "../temp/project/")
+FIGURES_DIR = WORKSPACE / "output"
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.mount("/styles", StaticFiles(directory=STYLES_DIR), name="styles")
 os.makedirs(POSTER_DIR, exist_ok=True)
+os.makedirs(PROJECT_ASSETS_DIR, exist_ok=True)
+FIGURES_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/posters", StaticFiles(directory=POSTER_DIR), name="posters")
+app.mount("/project-assets", StaticFiles(directory=PROJECT_ASSETS_DIR), name="project-assets")
+app.mount("/project-figures", StaticFiles(directory=str(FIGURES_DIR)), name="project-figures")
 
 
 def get_local_ip():
@@ -89,7 +95,16 @@ async def chatbot(
     x_chatbot_token: str | None = Header(default=None),
 ):
     require_chatbot_token(x_chatbot_token)
-    return {"answer": process_chat(x_chatbot_token, req.message)}
+    return process_chat(x_chatbot_token, req.message)
+
+
+@app.post("/api/chatbot/reset")
+async def reset_chatbot(
+    x_chatbot_token: str | None = Header(default=None),
+):
+    require_chatbot_token(x_chatbot_token)
+    reset_chat(x_chatbot_token)
+    return {"answer": "Agent reset."}
 
 
 # ─────────────────────────────────────────────────────────────

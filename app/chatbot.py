@@ -5,6 +5,7 @@ import re
 import secrets
 import subprocess
 import threading
+import time
 from pathlib import Path
 from typing import Any, Optional
 
@@ -22,9 +23,14 @@ OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:3b")
 TOKEN_PATH = REPO_ROOT / ".chatbot-token"
 MAX_OUTPUT_BYTES = 32 * 1024
 MAX_READ_BYTES = 256 * 1024
+OLLAMA_RETRIES = 2
 CONFIRMATION_PATTERN = re.compile(
     r"^\s*(?:yes|y|yeah|yep|sure|okay|ok|confirm|confirmed|approved|approve)"
     r"(?:[\s,!.:-]+.*)?$",
+    re.IGNORECASE,
+)
+REPEAT_COMMAND_PATTERN = re.compile(
+    r"\b(?:again|rerun|re-run|reexecute|re-execute|repeat|run\s+(?:it|that)\s+again)\b",
     re.IGNORECASE,
 )
 _sessions: dict[str, dict[str, Any]] = {}
@@ -65,6 +71,23 @@ TOOLS = [
     {
         "type": "function",
         "function": {
+            "name": "show_figure",
+            "description": "Show one generated training or validation figure on the project page. Use the exact filename from the workspace output directory.",
+            "parameters": {
+                "type": "object",
+                "required": ["filename"],
+                "properties": {
+                    "filename": {
+                        "type": "string",
+                        "description": "A PNG filename such as train_fig0.png or val_fig2_red.png",
+                    }
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "write_file",
             "description": "Create or replace a UTF-8 text file inside the workspace. Requires user confirmation.",
             "parameters": {
@@ -89,7 +112,7 @@ TOOLS = [
 ]
 
 SYSTEM_PROMPT = f"""
-You are a careful local software-project assistant.
+You are a careful local software-project assistant called FlowBenchAgent.
 
 Your workspace is {WORKSPACE}. Treat it as the only allowed project scope. Do not
 claim to have read, changed, or executed anything unless you used the available
@@ -97,6 +120,11 @@ tools and received a result. When a path is unknown, use list_files before
 guessing. Use read_file to inspect relevant files before proposing edits.
 
 You may answer questions and inspect the workspace without confirmation. The
+show_figure tool can display one existing train_fig*.png or val_fig*.png file
+on the project page when the user asks to see a specific result.
+When a confirmed run_command executes plot_val_sample.py successfully, the
+newest validation figure is automatically placed in the project page figure
+slot; tell the user which figure was refreshed.
 write_file and run_command tools always require explicit user confirmation; never
 try to bypass that requirement or treat an unrelated message as approval.
 Prefer small, targeted edits and preserve existing project conventions. Before
@@ -105,6 +133,9 @@ Do not expose access tokens, credentials, or other secrets in your response.
 
 Be concise and direct. After a tool result, explain the result plainly and state
 any limitation or error instead of inventing a successful outcome.
+Never report a command as executed based only on an earlier result in the
+conversation. Every requested execution must call run_command and use its
+fresh result.
 """.strip()
 
 
@@ -165,6 +196,33 @@ def _read_file(path: str) -> str:
     return file_path.read_text(encoding="utf-8")
 
 
+def _show_figure(filename: str) -> str:
+    if not re.fullmatch(r"(?:train|val)_fig\d+(?:_red)?\.png", filename):
+        raise ValueError("Only generated train_fig*.png and val_fig*.png files can be shown")
+    figure_path = _safe_path(f"output/{filename}")
+    if not figure_path.is_file():
+        raise ValueError(f"Figure does not exist: output/{filename}")
+    return json.dumps({"filename": filename, "modified": figure_path.stat().st_mtime_ns})
+
+
+def _latest_validation_figure(started_ns: int) -> Optional[dict[str, Any]]:
+    output_dir = _safe_path("output")
+    candidates = [
+        path
+        for path in output_dir.glob("val_fig*.png")
+        if path.is_file() and path.stat().st_mtime_ns >= started_ns
+    ]
+    if not candidates:
+        return None
+
+    full_figures = [path for path in candidates if re.fullmatch(r"val_fig\d+\.png", path.name)]
+    figure_path = max(full_figures or candidates, key=lambda path: path.stat().st_mtime_ns)
+    return {
+        "filename": figure_path.name,
+        "modified": figure_path.stat().st_mtime_ns,
+    }
+
+
 def _write_file(path: str, content: str) -> str:
     file_path = _safe_path(path)
     file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -190,6 +248,8 @@ def _execute_tool(name: str, arguments: dict[str, Any]) -> str:
         return _list_files(arguments.get("path", "."), arguments.get("recursive", False))
     if name == "read_file":
         return _read_file(arguments["path"])
+    if name == "show_figure":
+        return _show_figure(arguments["filename"])
     if name == "write_file":
         return _write_file(arguments["path"], arguments["content"])
     if name == "run_command":
@@ -199,7 +259,12 @@ def _execute_tool(name: str, arguments: dict[str, Any]) -> str:
 
 def _session(token: str) -> dict[str, Any]:
     with _sessions_lock:
-        return _sessions.setdefault(token, {"messages": [], "pending_tool": None})
+        return _sessions.setdefault(token, {"messages": [], "pending_tool": None, "last_command": None})
+
+
+def reset_chat(token: str) -> None:
+    with _sessions_lock:
+        _sessions[token] = {"messages": [], "pending_tool": None, "last_command": None}
 
 
 def _tool_requires_confirmation(name: str) -> bool:
@@ -219,7 +284,41 @@ def _is_confirmation(message: str) -> bool:
     return bool(CONFIRMATION_PATTERN.match(message))
 
 
-def _ollama(token: str, message: str, tool_result: Optional[dict[str, Any]] = None) -> str:
+def _is_repeat_command_request(message: str) -> bool:
+    return bool(REPEAT_COMMAND_PATTERN.search(message))
+
+
+def _request_ollama(messages: list[dict[str, Any]]) -> requests.Response:
+    payload = {
+        "model": OLLAMA_MODEL,
+        "stream": False,
+        "tools": TOOLS,
+        "messages": messages,
+    }
+    last_error: Optional[Exception] = None
+    for attempt in range(OLLAMA_RETRIES + 1):
+        try:
+            response = requests.post(
+                f"{OLLAMA_URL}/api/chat",
+                json=payload,
+                timeout=120,
+            )
+            if response.status_code < 500 and response.status_code != 429:
+                return response
+            last_error = RuntimeError(
+                f"Ollama returned HTTP {response.status_code}: {response.text[:500]}"
+            )
+        except requests.RequestException as exc:
+            last_error = exc
+        if attempt < OLLAMA_RETRIES:
+            time.sleep(0.5 * (attempt + 1))
+    raise HTTPException(
+        status_code=502,
+        detail=f"Ollama is temporarily unavailable: {last_error}",
+    )
+
+
+def _ollama(token: str, message: str, tool_result: Optional[dict[str, Any]] = None) -> dict[str, Any]:
     state = _session(token)
     history = state["messages"]
     messages = [{"role": "system", "content": SYSTEM_PROMPT}, *history]
@@ -233,14 +332,16 @@ def _ollama(token: str, message: str, tool_result: Optional[dict[str, Any]] = No
         )
     else:
         messages.append({"role": "user", "content": message})
-    response = requests.post(
-        f"{OLLAMA_URL}/api/chat",
-        json={"model": OLLAMA_MODEL, "stream": False, "tools": TOOLS, "messages": messages},
-        timeout=120,
-    )
+    response = _request_ollama(messages)
     if response.status_code != 200:
         raise HTTPException(status_code=502, detail=f"Ollama request failed: {response.text[:500]}")
-    assistant = response.json().get("message", {})
+    try:
+        response_body = response.json()
+    except ValueError as exc:
+        raise HTTPException(status_code=502, detail="Ollama returned invalid JSON") from exc
+    assistant = response_body.get("message")
+    if not isinstance(assistant, dict):
+        raise HTTPException(status_code=502, detail="Ollama response did not contain a message")
     answer = assistant.get("content", "")
     calls = assistant.get("tool_calls") or []
     history.append({"role": "user", "content": message} if not tool_result else {"role": "tool", "content": tool_result["content"]})
@@ -249,21 +350,37 @@ def _ollama(token: str, message: str, tool_result: Optional[dict[str, Any]] = No
         name = call.get("name")
         arguments = call.get("arguments", {})
         if isinstance(arguments, str):
-            arguments = json.loads(arguments)
+            try:
+                arguments = json.loads(arguments)
+            except json.JSONDecodeError as exc:
+                raise HTTPException(status_code=502, detail="Ollama returned invalid tool arguments") from exc
+        if not isinstance(name, str) or not isinstance(arguments, dict):
+            raise HTTPException(status_code=502, detail="Ollama returned an invalid tool call")
         if _tool_requires_confirmation(name):
             state["pending_tool"] = {"name": name, "arguments": arguments}
-            return f"I want to run `{_tool_summary(name, arguments)}`. Reply `yes` to confirm."
-        result = _execute_tool(name, arguments)
+            return {"answer": f"I want to run `{_tool_summary(name, arguments)}`. Reply `yes` to confirm."}
+        try:
+            result = _execute_tool(name, arguments)
+        except (KeyError, TypeError, ValueError, OSError, subprocess.TimeoutExpired) as exc:
+            result = f"Tool error: {exc}"
+        if name == "show_figure":
+            if result.startswith("{"):
+                state["selected_figure"] = json.loads(result)
         return _ollama(token, message, {"name": name, "content": result})
     history.append({"role": "assistant", "content": answer})
-    return answer or "I could not produce a response."
+    return {
+        "answer": answer or "I could not produce a response.",
+        "figure": state.get("selected_figure"),
+    }
 
 
-def process_chat(token: str, message: str) -> str:
+def process_chat(token: str, message: str) -> dict[str, Any]:
     state = _session(token)
+    state["selected_figure"] = None
     pending = state.get("pending_tool")
     if pending and _is_confirmation(message):
         state["pending_tool"] = None
+        command_started_ns = time.time_ns()
         try:
             result = _execute_tool(pending["name"], pending["arguments"])
         except (KeyError, TypeError, ValueError, OSError, subprocess.TimeoutExpired, requests.RequestException) as exc:
@@ -277,10 +394,37 @@ def process_chat(token: str, message: str) -> str:
                 {"role": "user", "content": message},
                 {
                     "role": "assistant",
-                    "content": f"Executed {_tool_summary(pending['name'], pending['arguments'])}.",
+                    "content": (
+                        f"Executed {_tool_summary(pending['name'], pending['arguments'])}.\n\n"
+                        f"{result}"
+                    ),
                 },
-                {"role": "tool", "content": result},
             ]
         )
-        return f"Executed {_tool_summary(pending['name'], pending['arguments'])}.\n\n{result}"
+        figure = None
+        command = pending["arguments"].get("command", "")
+        if pending["name"] == "run_command" and isinstance(command, str):
+            state["last_command"] = command
+        if (
+            pending["name"] == "run_command"
+            and re.search(r"(?:^|[\s/])plot_val_sample\.py(?:\s|$)", command)
+            and result.startswith("exit_code=0")
+        ):
+            figure = _latest_validation_figure(command_started_ns)
+            if figure:
+                result += f"\nRefreshed project figure: {figure['filename']}"
+                history[-1]["content"] += f"\nRefreshed project figure: {figure['filename']}"
+        return {
+            "answer": f"Executed {_tool_summary(pending['name'], pending['arguments'])}.\n\n{result}",
+            "figure": figure,
+        }
+    last_command = state.get("last_command")
+    if (
+        isinstance(last_command, str)
+        and last_command
+        and _is_repeat_command_request(message)
+        and not pending
+    ):
+        state["pending_tool"] = {"name": "run_command", "arguments": {"command": last_command}}
+        return {"answer": f"I want to run `run_command({last_command})` again. Reply `yes` to confirm."}
     return _ollama(token, message)

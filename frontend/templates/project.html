@@ -11,31 +11,33 @@
 	<a class="back" href="/">&larr; Back</a>
 	<h1>Project Assistant</h1>
 
-	<section class="chatbot" aria-labelledby="chatbot-title">
-		<h2 id="chatbot-title">Local Assistant</h2>
-		<p class="chatbot-note">The assistant works in /home/tpharmsen/Documents/flowbench-cnn and asks for command confirmation in the conversation.</p>
-		<div id="chat-messages" class="chat-messages" aria-live="polite"></div>
-		<label>Access token <input id="chat-token" type="password" autocomplete="off"></label>
-		<label>Message <textarea id="chat-message" rows="3" placeholder="Ask about the workspace..."></textarea></label>
-		<button id="chat-send" type="button">Send</button>
+	<section class="project-figures">
+		<h2>Steady State Approximator</h2>
+		<div style="display: flex; justify-content: center; align-items: center; margin-bottom: 40px;">
+			<img
+				src="/project-assets/flowbenchdataviz.png"
+				alt="FlowBench data visualization"
+				style="width: 1200px; height: auto;"
+			>
+		</div>
 	</section>
 
-    <div style="display: flex; justify-content: center; align-items: center;">
-		<img
-			src="https://baskargroup.bitbucket.io/static/media/Poster.5e9930fdd5ce35315d33.png"
-			alt="Some description"
-			style="width: 1200px; height: auto; background-color: #004170;"
-		>
-	</div>
+	<section class="chatbot" aria-labelledby="chatbot-title">
+		<h2 id="chatbot-title">Local Agent</h2>
+		<div id="chat-messages" class="chat-messages" aria-live="polite"></div>
+		<label>Access token <input id="chat-token" type="password" autocomplete="off"></label>
+		<label>Message</label>
+		<div class="chat-compose">
+			<textarea id="chat-message" rows="3" placeholder="Ask about the workspace..."></textarea>
+			<button id="chat-send" type="button">Send</button>
+		</div>
+		<button id="chat-reset" class="chat-reset" type="button">Reset agent</button>
+	</section>
 
-	<div style="display: flex; justify-content: center; align-items: center;">
-		<img
-			src="https://media.licdn.com/dms/image/v2/D4E03AQG1UNm1MRnfrg/profile-displayphoto-scale_400_400/B4EZlTLZkbKsA0-/0/1758037122356?e=1790208000&v=beta&t=ezMfprokpbcLPbpfH1-RdpoarcoisvgPRuu8XgxcA7c"
-			alt="tralala"
-			style="width: 300px; height: auto; background-color: #0e2d43;"
-		>
-	</div>
-
+	<section class="project-figures" aria-labelledby="project-figures-title">
+		<h2 id="project-figures-title">Agent figure output</h2>
+		<div id="project-figure"></div>
+	</section>
 
 	<script type="module" src="/static/project-page.js"></script>
 </body>
