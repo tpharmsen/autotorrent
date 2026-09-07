@@ -90,7 +90,7 @@ async function resetAgent(): Promise<void> {
 		if (messages) messages.replaceChildren();
 		if (messageInput) messageInput.value = "";
 		if (figure) figure.replaceChildren();
-		if (figureStatus) figureStatus.textContent = "Ask the assistant to show a training or validation figure.";
+		if (figureStatus) figureStatus.textContent = "Ask the assistant to show a figure.";
 		addMessage("assistant", data.answer || "Agent reset.");
 	} catch (error) {
 		addMessage("error", error instanceof Error ? error.message : "Agent reset failed.");

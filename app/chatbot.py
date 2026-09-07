@@ -29,10 +29,17 @@ CONFIRMATION_PATTERN = re.compile(
     r"(?:[\s,!.:-]+.*)?$",
     re.IGNORECASE,
 )
+DECLINE_PATTERN = re.compile(
+    r"^\s*(?:no|n|nope|nah|cancel|stop|don't|do not)"
+    r"(?:[\s,!.:-]+.*)?$",
+    re.IGNORECASE,
+)
 REPEAT_COMMAND_PATTERN = re.compile(
     r"\b(?:again|rerun|re-run|reexecute|re-execute|repeat|run\s+(?:it|that)\s+again)\b",
     re.IGNORECASE,
 )
+FIGURE_PATTERN = re.compile(r"fig\d+(?:_red)?\.png")
+PLOT_COMMAND_PATTERN = re.compile(r"(?<![\w.-])plot_[\w-]+\.py(?![\w.-])")
 _sessions: dict[str, dict[str, Any]] = {}
 _sessions_lock = threading.Lock()
 
@@ -72,14 +79,14 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "show_figure",
-            "description": "Show one generated training or validation figure on the project page. Use the exact filename from the workspace output directory.",
+            "description": "Show one generated training, validation, testing or custom figure on the project page. Use the exact filename from the workspace output directory.",
             "parameters": {
                 "type": "object",
                 "required": ["filename"],
                 "properties": {
                     "filename": {
                         "type": "string",
-                        "description": "A PNG filename such as train_fig0.png or val_fig2_red.png",
+                        "description": "A PNG filename such as fig0.png",
                     }
                 },
             },
@@ -120,11 +127,12 @@ tools and received a result. When a path is unknown, use list_files before
 guessing. Use read_file to inspect relevant files before proposing edits.
 
 You may answer questions and inspect the workspace without confirmation. The
-show_figure tool can display one existing train_fig*.png or val_fig*.png file
-on the project page when the user asks to see a specific result.
-When a confirmed run_command executes plot_val_sample.py successfully, the
-newest validation figure is automatically placed in the project page figure
-slot; tell the user which figure was refreshed.
+show_figure tool can display one existing fig*.png file on the project page when the
+user asks to see a specific result.
+When a confirmed run_command successfully executes any plotting function or
+plot_*.py script, check whether output/fig0.png exists. If it does, it is
+automatically placed in the project page figure slot; tell the user that the
+figure was refreshed.
 write_file and run_command tools always require explicit user confirmation; never
 try to bypass that requirement or treat an unrelated message as approval.
 Prefer small, targeted edits and preserve existing project conventions. Before
@@ -197,26 +205,19 @@ def _read_file(path: str) -> str:
 
 
 def _show_figure(filename: str) -> str:
-    if not re.fullmatch(r"(?:train|val)_fig\d+(?:_red)?\.png", filename):
-        raise ValueError("Only generated train_fig*.png and val_fig*.png files can be shown")
+    if not FIGURE_PATTERN.fullmatch(filename):
+        raise ValueError("Only generated fig*.png files can be shown")
     figure_path = _safe_path(f"output/{filename}")
     if not figure_path.is_file():
         raise ValueError(f"Figure does not exist: output/{filename}")
     return json.dumps({"filename": filename, "modified": figure_path.stat().st_mtime_ns})
 
 
-def _latest_validation_figure(started_ns: int) -> Optional[dict[str, Any]]:
-    output_dir = _safe_path("output")
-    candidates = [
-        path
-        for path in output_dir.glob("val_fig*.png")
-        if path.is_file() and path.stat().st_mtime_ns >= started_ns
-    ]
-    if not candidates:
+def _figure_zero() -> Optional[dict[str, Any]]:
+    figure_path = _safe_path("output/fig0.png")
+    if not figure_path.is_file():
         return None
 
-    full_figures = [path for path in candidates if re.fullmatch(r"val_fig\d+\.png", path.name)]
-    figure_path = max(full_figures or candidates, key=lambda path: path.stat().st_mtime_ns)
     return {
         "filename": figure_path.name,
         "modified": figure_path.stat().st_mtime_ns,
@@ -259,12 +260,16 @@ def _execute_tool(name: str, arguments: dict[str, Any]) -> str:
 
 def _session(token: str) -> dict[str, Any]:
     with _sessions_lock:
-        return _sessions.setdefault(token, {"messages": [], "pending_tool": None, "last_command": None})
+        return _sessions.setdefault(token, _new_session_state())
+
+
+def _new_session_state() -> dict[str, Any]:
+    return {"messages": [], "pending_tool": None, "last_command": None}
 
 
 def reset_chat(token: str) -> None:
     with _sessions_lock:
-        _sessions[token] = {"messages": [], "pending_tool": None, "last_command": None}
+        _sessions[token] = _new_session_state()
 
 
 def _tool_requires_confirmation(name: str) -> bool:
@@ -284,8 +289,26 @@ def _is_confirmation(message: str) -> bool:
     return bool(CONFIRMATION_PATTERN.match(message))
 
 
+def _is_decline(message: str) -> bool:
+    return bool(DECLINE_PATTERN.match(message))
+
+
 def _is_repeat_command_request(message: str) -> bool:
     return bool(REPEAT_COMMAND_PATTERN.search(message))
+
+
+def _confirmation_prompt(name: str, arguments: dict[str, Any]) -> str:
+    if name == "write_file":
+        path = arguments.get("path", "?")
+        return f"I can update `{path}` in the workspace. Would you like me to go ahead?"
+    if name == "run_command":
+        command = arguments.get("command", "?")
+        return (
+            "I can run this command in the workspace:\n\n"
+            f"`{command}`\n\n"
+            "Would you like me to go ahead?"
+        )
+    return f"I can use `{name}`. Would you like me to go ahead?"
 
 
 def _request_ollama(messages: list[dict[str, Any]]) -> requests.Response:
@@ -358,7 +381,7 @@ def _ollama(token: str, message: str, tool_result: Optional[dict[str, Any]] = No
             raise HTTPException(status_code=502, detail="Ollama returned an invalid tool call")
         if _tool_requires_confirmation(name):
             state["pending_tool"] = {"name": name, "arguments": arguments}
-            return {"answer": f"I want to run `{_tool_summary(name, arguments)}`. Reply `yes` to confirm."}
+            return {"answer": _confirmation_prompt(name, arguments)}
         try:
             result = _execute_tool(name, arguments)
         except (KeyError, TypeError, ValueError, OSError, subprocess.TimeoutExpired) as exc:
@@ -378,9 +401,17 @@ def process_chat(token: str, message: str) -> dict[str, Any]:
     state = _session(token)
     state["selected_figure"] = None
     pending = state.get("pending_tool")
+    if pending and _is_decline(message):
+        state["pending_tool"] = None
+        state["messages"].extend(
+            [
+                {"role": "user", "content": message},
+                {"role": "assistant", "content": "Okay, I won't do that."},
+            ]
+        )
+        return {"answer": "Okay, I won't do that."}
     if pending and _is_confirmation(message):
         state["pending_tool"] = None
-        command_started_ns = time.time_ns()
         try:
             result = _execute_tool(pending["name"], pending["arguments"])
         except (KeyError, TypeError, ValueError, OSError, subprocess.TimeoutExpired, requests.RequestException) as exc:
@@ -407,10 +438,10 @@ def process_chat(token: str, message: str) -> dict[str, Any]:
             state["last_command"] = command
         if (
             pending["name"] == "run_command"
-            and re.search(r"(?:^|[\s/])plot_val_sample\.py(?:\s|$)", command)
+            and PLOT_COMMAND_PATTERN.search(command)
             and result.startswith("exit_code=0")
         ):
-            figure = _latest_validation_figure(command_started_ns)
+            figure = _figure_zero()
             if figure:
                 result += f"\nRefreshed project figure: {figure['filename']}"
                 history[-1]["content"] += f"\nRefreshed project figure: {figure['filename']}"
@@ -426,5 +457,5 @@ def process_chat(token: str, message: str) -> dict[str, Any]:
         and not pending
     ):
         state["pending_tool"] = {"name": "run_command", "arguments": {"command": last_command}}
-        return {"answer": f"I want to run `run_command({last_command})` again. Reply `yes` to confirm."}
+        return {"answer": _confirmation_prompt("run_command", {"command": last_command})}
     return _ollama(token, message)
