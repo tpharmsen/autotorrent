@@ -341,19 +341,11 @@ def _request_ollama(messages: list[dict[str, Any]]) -> requests.Response:
     )
 
 
-def _ollama(token: str, message: str, tool_result: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+def _ollama(token: str, message: str, include_user_message: bool = True) -> dict[str, Any]:
     state = _session(token)
     history = state["messages"]
     messages = [{"role": "system", "content": SYSTEM_PROMPT}, *history]
-    if tool_result:
-        messages.append(
-            {
-                "role": "tool",
-                "tool_name": tool_result["name"],
-                "content": tool_result["content"],
-            }
-        )
-    else:
+    if include_user_message:
         messages.append({"role": "user", "content": message})
     response = _request_ollama(messages)
     if response.status_code != 200:
@@ -367,7 +359,8 @@ def _ollama(token: str, message: str, tool_result: Optional[dict[str, Any]] = No
         raise HTTPException(status_code=502, detail="Ollama response did not contain a message")
     answer = assistant.get("content", "")
     calls = assistant.get("tool_calls") or []
-    history.append({"role": "user", "content": message} if not tool_result else {"role": "tool", "content": tool_result["content"]})
+    if include_user_message:
+        history.append({"role": "user", "content": message})
     if calls:
         call = calls[0].get("function", {})
         name = call.get("name")
@@ -379,6 +372,13 @@ def _ollama(token: str, message: str, tool_result: Optional[dict[str, Any]] = No
                 raise HTTPException(status_code=502, detail="Ollama returned invalid tool arguments") from exc
         if not isinstance(name, str) or not isinstance(arguments, dict):
             raise HTTPException(status_code=502, detail="Ollama returned an invalid tool call")
+        history.append(
+            {
+                "role": "assistant",
+                "content": answer,
+                "tool_calls": calls,
+            }
+        )
         if _tool_requires_confirmation(name):
             state["pending_tool"] = {"name": name, "arguments": arguments}
             return {"answer": _confirmation_prompt(name, arguments)}
@@ -389,7 +389,14 @@ def _ollama(token: str, message: str, tool_result: Optional[dict[str, Any]] = No
         if name == "show_figure":
             if result.startswith("{"):
                 state["selected_figure"] = json.loads(result)
-        return _ollama(token, message, {"name": name, "content": result})
+        history.append(
+            {
+                "role": "tool",
+                "tool_name": name,
+                "content": result,
+            }
+        )
+        return _ollama(token, "", include_user_message=False)
     history.append({"role": "assistant", "content": answer})
     return {
         "answer": answer or "I could not produce a response.",
@@ -449,6 +456,8 @@ def process_chat(token: str, message: str) -> dict[str, Any]:
             "answer": f"Executed {_tool_summary(pending['name'], pending['arguments'])}.\n\n{result}",
             "figure": figure,
         }
+    if pending:
+        state["pending_tool"] = None
     last_command = state.get("last_command")
     if (
         isinstance(last_command, str)
