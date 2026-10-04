@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<title>Lewis Agent</title>
+	<link rel="stylesheet" href="/styles/styles.css">
+</head>
+
+<body class="agent-page">
+	<div class="top-actions">
+		<a class="top-action" href="/">Movies &amp; TV</a>
+		<button id="agent-logout" type="button">Sign out</button>
+	</div>
+	<h1>Lewis Agent</h1>
+
+	<main class="agent-panel">
+		<p class="agent-intro">
+			Lewis routes each request to its conversation, coding, movies, or web specialist.
+		</p>
+		<div id="agent-messages" class="agent-messages" aria-live="polite">
+			<div class="agent-message assistant">Lewis is ready. What should we work on?</div>
+		</div>
+		<label class="agent-approval">
+			<input id="agent-approve" type="checkbox">
+			Approve coding commands for this request
+		</label>
+		<div class="agent-compose">
+			<textarea id="agent-input" rows="3" placeholder="Ask Lewis anything..." aria-label="Message"></textarea>
+			<button id="agent-send" type="button">Send</button>
+		</div>
+		<button id="agent-clear" class="agent-clear" type="button">New conversation</button>
+	</main>
+
+	<script type="module" src="/static/lewis-page.js"></script>
+</body>
+
+</html>

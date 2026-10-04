@@ -1,6 +1,7 @@
-from fastapi import FastAPI, Request, HTTPException, Header
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
 import os
 import socket
 from models import TorrentLink, TorrentResponse, MagnetRequest
@@ -10,12 +11,44 @@ from tpb import *
 from vlc import *
 from stream import *  # Contains get_stream_response, start_transcode_response, get_hls_segment
 from cleanup import *
-from chatbot import WORKSPACE, ChatbotRequest, process_chat, require_chatbot_token, reset_chat
+from lewis_bridge import LewisRequest, run_lewis
+from auth import (
+    SESSION_COOKIE,
+    is_authenticated,
+    login_allowed,
+    new_session,
+    password_matches,
+    record_login_attempt,
+    same_origin,
+)
 import threading
 import subprocess
 import uvicorn
 
-app = FastAPI()
+app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
+
+
+class LoginRequest(BaseModel):
+    password: str = Field(min_length=1, max_length=256)
+
+
+PUBLIC_PREFIXES = ("/static/", "/styles/", "/posters/")
+PUBLIC_PATHS = {"/login", "/api/auth/login", "/api/auth/logout"}
+
+
+@app.middleware("http")
+async def require_login(request: Request, call_next):
+    path = request.url.path
+    authenticated = is_authenticated(request)
+    if path not in PUBLIC_PATHS and not path.startswith(PUBLIC_PREFIXES):
+        if not authenticated:
+            accepts_html = "text/html" in request.headers.get("accept", "")
+            if accepts_html and request.method in {"GET", "HEAD"}:
+                return RedirectResponse("/login")
+            return JSONResponse({"detail": "Authentication required"}, status_code=401)
+        if request.method in {"POST", "PUT", "PATCH", "DELETE"} and not same_origin(request):
+            return JSONResponse({"detail": "Invalid request origin"}, status_code=403)
+    return await call_next(request)
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -23,17 +56,11 @@ POSTER_DIR = os.path.join(BASE_DIR, "../temp/posters/")
 PAGES_DIR = os.path.join(BASE_DIR, "../frontend/templates/") 
 STATIC_DIR = os.path.join(BASE_DIR, "../frontend/dist/")
 STYLES_DIR = os.path.join(BASE_DIR, "../frontend/styles/")
-PROJECT_ASSETS_DIR = os.path.join(BASE_DIR, "../temp/project/")
-FIGURES_DIR = WORKSPACE / "output"
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.mount("/styles", StaticFiles(directory=STYLES_DIR), name="styles")
 os.makedirs(POSTER_DIR, exist_ok=True)
-os.makedirs(PROJECT_ASSETS_DIR, exist_ok=True)
-FIGURES_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/posters", StaticFiles(directory=POSTER_DIR), name="posters")
-app.mount("/project-assets", StaticFiles(directory=PROJECT_ASSETS_DIR), name="project-assets")
-app.mount("/project-figures", StaticFiles(directory=str(FIGURES_DIR)), name="project-figures")
 
 
 def get_local_ip():
@@ -68,6 +95,43 @@ async def index_page():
     return FileResponse(os.path.join(PAGES_DIR, "index.html"))
 
 
+@app.get("/login")
+async def login_page():
+    return FileResponse(os.path.join(PAGES_DIR, "login.html"))
+
+
+@app.get("/select")
+async def select_page():
+    return FileResponse(os.path.join(PAGES_DIR, "launcher.html"))
+
+
+@app.post("/api/auth/login")
+async def login(req: LoginRequest, request: Request):
+    if not login_allowed(request):
+        raise HTTPException(status_code=429, detail="Too many login attempts. Try again later.")
+    record_login_attempt(request)
+    if not password_matches(req.password):
+        raise HTTPException(status_code=401, detail="Invalid password")
+    response = JSONResponse({"authenticated": True, "redirect": "/select"})
+    response.set_cookie(
+        SESSION_COOKIE,
+        new_session(),
+        max_age=8 * 60 * 60,
+        httponly=True,
+        secure=request.url.scheme == "https",
+        samesite="strict",
+        path="/",
+    )
+    return response
+
+
+@app.post("/api/auth/logout")
+async def logout():
+    response = JSONResponse({"authenticated": False})
+    response.delete_cookie(SESSION_COOKIE, path="/")
+    return response
+
+
 @app.get("/search/{query}")
 async def search_page(query: str):
     # query is read client-side via window.location.pathname in search.ts —
@@ -84,27 +148,17 @@ async def movie_page(id: str):
 async def tv_page(id: str):
     return FileResponse(os.path.join(PAGES_DIR, "tv.html"))
 
-@app.get("/project")
-async def project_page():
-    return FileResponse(os.path.join(PAGES_DIR, "project.html"))
+@app.get("/agent")
+async def agent_page():
+    return FileResponse(os.path.join(PAGES_DIR, "agent.html"))
 
 
-@app.post("/api/chatbot")
-async def chatbot(
-    req: ChatbotRequest,
-    x_chatbot_token: str | None = Header(default=None),
-):
-    require_chatbot_token(x_chatbot_token)
-    return process_chat(x_chatbot_token, req.message)
-
-
-@app.post("/api/chatbot/reset")
-async def reset_chatbot(
-    x_chatbot_token: str | None = Header(default=None),
-):
-    require_chatbot_token(x_chatbot_token)
-    reset_chat(x_chatbot_token)
-    return {"answer": "Agent reset."}
+@app.post("/api/agent")
+async def agent(req: LewisRequest):
+    try:
+        return await run_lewis(req)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=f"Lewis agent failed: {exc}") from exc
 
 
 # ─────────────────────────────────────────────────────────────

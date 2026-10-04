@@ -88,18 +88,27 @@ function totalWipe(): void {
 	});
 }
 
-function goToProject(): void {
-	const button = document.getElementById("project-home-btn");
+function goToAgent(): void {
+	const button = document.getElementById("agent-home-btn");
 	if (!button) return;
 
 	button.addEventListener("click", async () => {
 		try {
-			console.log("gotoproject complete");
-			window.location.href = `/project`;
+			window.location.href = `/agent`;
 		} catch(err) {
-			window.alert("Failed to request project");
-			console.error("failed to go to project");
+			window.alert("Failed to open Lewis");
+			console.error("failed to open Lewis", err);
 		}
+	});
+}
+
+function signOut(): void {
+	const button = document.getElementById("movie-logout");
+	if (!button) return;
+
+	button.addEventListener("click", async () => {
+		await fetch("/api/auth/logout", { method: "POST" });
+		window.location.href = "/login";
 	});
 }
 
@@ -108,5 +117,6 @@ document.addEventListener("DOMContentLoaded", () => {
 	hlsWipe();
     totalWipe();
 	loadPosters();
-	goToProject();
+	goToAgent();
+	signOut();
 });

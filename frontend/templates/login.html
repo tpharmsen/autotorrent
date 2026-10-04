@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>AutoTorrent Login</title>
+	<link rel="stylesheet" href="/styles/styles.css">
+</head>
+<body class="login-page">
+	<main class="login-panel">
+		<h1>AutoTorrent</h1>
+		<p>Sign in to access your private tailnet service.</p>
+		<form id="login-form">
+			<label for="login-password">Password</label>
+			<input id="login-password" type="password" autocomplete="current-password" required autofocus>
+			<button id="login-submit" type="submit">Sign in</button>
+			<p id="login-error" class="login-error" role="alert"></p>
+		</form>
+	</main>
+	<script type="module" src="/static/login-page.js"></script>
+</body>
+</html>
