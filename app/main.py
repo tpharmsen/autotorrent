@@ -2,6 +2,7 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+import asyncio
 import os
 import socket
 from models import TorrentLink, TorrentResponse, MagnetRequest
@@ -42,8 +43,14 @@ async def require_login(request: Request, call_next):
     authenticated = is_authenticated(request)
     if path not in PUBLIC_PATHS and not path.startswith(PUBLIC_PREFIXES):
         if not authenticated:
-            accepts_html = "text/html" in request.headers.get("accept", "")
-            if accepts_html and request.method in {"GET", "HEAD"}:
+            is_navigation = (
+                request.method in {"GET", "HEAD"}
+                and (
+                    "text/html" in request.headers.get("accept", "")
+                    or request.headers.get("sec-fetch-mode") == "navigate"
+                )
+            )
+            if is_navigation:
                 return RedirectResponse("/login")
             return JSONResponse({"detail": "Authentication required"}, status_code=401)
         if request.method in {"POST", "PUT", "PATCH", "DELETE"} and not same_origin(request):
@@ -111,6 +118,7 @@ async def login(req: LoginRequest, request: Request):
         raise HTTPException(status_code=429, detail="Too many login attempts. Try again later.")
     record_login_attempt(request)
     if not password_matches(req.password):
+        await asyncio.sleep(4)
         raise HTTPException(status_code=401, detail="Invalid password")
     response = JSONResponse({"authenticated": True, "redirect": "/select"})
     response.set_cookie(
